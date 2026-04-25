@@ -1,0 +1,174 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Big Break — design system. All colors HSL. Warm neutrals + terracotta accent + sage support. */
+
+@layer base {
+  :root {
+    /* Surfaces */
+    --background: 36 33% 96%;          /* #F8F5F0 warm off-white */
+    --foreground: 240 10% 11%;         /* #1A1A1F ink */
+
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 11%;
+
+    /* Brand: warm terracotta */
+    --primary: 11 70% 60%;             /* #E26A52 */
+    --primary-foreground: 36 33% 98%;
+    --primary-soft: 11 70% 95%;        /* tint */
+
+    /* Supportive: calm sage */
+    --secondary: 145 18% 58%;          /* #7FA88E */
+    --secondary-foreground: 0 0% 100%;
+    --secondary-soft: 145 25% 93%;
+
+    --muted: 36 20% 92%;               /* warm muted */
+    --muted-foreground: 240 5% 42%;
+
+    --accent: 36 25% 88%;
+    --accent-foreground: 240 10% 11%;
+
+    --destructive: 0 70% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 36 18% 88%;
+    --input: 36 18% 88%;
+    --ring: 11 70% 60%;
+
+    --radius: 0.5rem;
+
+    /* App-specific tokens */
+    --ink-soft: 240 6% 28%;
+    --ink-mute: 240 5% 55%;
+    --bubble-me: 11 70% 60%;
+    --bubble-me-fg: 36 33% 98%;
+    --bubble-them: 36 25% 94%;
+    --bubble-them-fg: 240 10% 11%;
+    --online: 145 50% 45%;
+
+    --shadow-card: 0 1px 2px hsl(240 10% 11% / 0.04), 0 8px 24px -8px hsl(240 10% 11% / 0.08);
+    --shadow-soft: 0 1px 2px hsl(240 10% 11% / 0.04);
+    --shadow-nav: 0 -2px 24px -8px hsl(240 10% 11% / 0.12);
+
+    --gradient-warm: linear-gradient(160deg, hsl(36 40% 95%), hsl(20 35% 92%));
+    --gradient-evening: linear-gradient(160deg, hsl(20 50% 88%), hsl(11 60% 80%));
+
+    /* After Dark — neon-night palette */
+    --ad-bg: 270 30% 6%;
+    --ad-surface: 270 24% 10%;
+    --ad-surface-elev: 270 22% 14%;
+    --ad-border: 280 25% 22%;
+    --ad-fg: 300 15% 96%;
+    --ad-fg-soft: 285 15% 78%;
+    --ad-fg-mute: 280 10% 58%;
+    --ad-magenta: 320 95% 62%;
+    --ad-magenta-soft: 320 60% 24%;
+    --ad-violet: 268 90% 66%;
+    --ad-violet-soft: 268 50% 22%;
+    --ad-cyan: 188 95% 60%;
+    --ad-gold: 42 95% 62%;
+    --gradient-after-dark: linear-gradient(140deg, hsl(270 50% 14%) 0%, hsl(290 60% 18%) 50%, hsl(320 70% 22%) 100%);
+    --gradient-neon: linear-gradient(95deg, hsl(320 95% 62%), hsl(268 90% 66%));
+    --shadow-neon: 0 0 24px -4px hsl(320 95% 62% / 0.45), 0 0 60px -10px hsl(268 90% 66% / 0.35);
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --background: 240 12% 8%;
+    --foreground: 36 25% 94%;
+
+    --card: 240 10% 12%;
+    --card-foreground: 36 25% 94%;
+
+    --popover: 240 10% 12%;
+    --popover-foreground: 36 25% 94%;
+
+    --primary: 11 70% 62%;
+    --primary-foreground: 240 12% 8%;
+    --primary-soft: 11 40% 18%;
+
+    --secondary: 145 25% 55%;
+    --secondary-foreground: 240 12% 8%;
+    --secondary-soft: 145 20% 18%;
+
+    --muted: 240 8% 16%;
+    --muted-foreground: 240 5% 65%;
+
+    --accent: 240 8% 18%;
+    --accent-foreground: 36 25% 94%;
+
+    --destructive: 0 65% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 240 8% 18%;
+    --input: 240 8% 18%;
+    --ring: 11 70% 62%;
+
+    --ink-soft: 36 18% 82%;
+    --ink-mute: 240 5% 60%;
+    --bubble-me: 11 70% 58%;
+    --bubble-me-fg: 36 33% 98%;
+    --bubble-them: 240 8% 18%;
+    --bubble-them-fg: 36 25% 94%;
+    --online: 145 55% 50%;
+
+    --shadow-card: 0 1px 2px hsl(0 0% 0% / 0.3), 0 8px 24px -8px hsl(0 0% 0% / 0.5);
+    --shadow-soft: 0 1px 2px hsl(0 0% 0% / 0.3);
+    --shadow-nav: 0 -2px 24px -8px hsl(0 0% 0% / 0.5);
+
+    --gradient-warm: linear-gradient(160deg, hsl(240 10% 14%), hsl(11 30% 18%));
+    --gradient-evening: linear-gradient(160deg, hsl(11 35% 22%), hsl(11 50% 28%));
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html, body, #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Manrope', system-ui, sans-serif;
+    font-feature-settings: 'ss01', 'cv11';
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  h1, h2, h3, h4, h5 {
+    font-family: 'Sora', system-ui, sans-serif;
+    letter-spacing: 0;
+  }
+}
+
+@layer components {
+  .font-display { font-family: 'Sora', system-ui, sans-serif; letter-spacing: 0; }
+  .font-ui { font-family: 'Manrope', system-ui, sans-serif; }
+
+  .phone-shadow {
+    box-shadow:
+      0 50px 100px -30px hsl(240 30% 10% / 0.35),
+      0 30px 60px -30px hsl(240 30% 10% / 0.25);
+  }
+
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
+  .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+  .tap-fade { @apply transition-all duration-150 active:scale-[0.98] active:opacity-80; }
+}
+
+@layer utilities {
+  .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+}
