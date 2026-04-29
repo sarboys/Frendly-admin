@@ -2,6 +2,7 @@ const DEFAULT_API_BASE_URL = "http://localhost:3000";
 
 export const adminApiBaseUrl =
   import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") ?? DEFAULT_API_BASE_URL;
+const adminApiToken = import.meta.env.VITE_ADMIN_API_TOKEN;
 
 export class AdminApiError extends Error {
   constructor(
@@ -18,10 +19,15 @@ export async function adminApiRequest<T>(
   path: string,
   init: RequestInit = {},
 ): Promise<T> {
+  const tokenHeader =
+    typeof adminApiToken === "string" && adminApiToken.length > 0
+      ? { "x-admin-token": adminApiToken }
+      : {};
   const response = await fetch(`${adminApiBaseUrl}${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",
+      ...tokenHeader,
       ...init.headers,
     },
   });
