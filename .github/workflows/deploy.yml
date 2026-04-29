@@ -24,8 +24,6 @@ jobs:
     steps:
       - name: Deploy on server
         uses: appleboy/ssh-action@v1.2.0
-        env:
-          FRENDLY_BACKEND_BRANCH: ${{ vars.FRENDLY_BACKEND_BRANCH || 'frendly-evening-db-foundation' }}
         with:
           host: api.frendly.tech
           username: root
@@ -36,7 +34,7 @@ jobs:
             set -eu
             export APP_DIR="/opt/frendly"
             export REPO_URL="https://github.com/sarboys/Frendly.git"
-            export BRANCH="${FRENDLY_BACKEND_BRANCH}"
+            export BRANCH="${{ vars.FRENDLY_BACKEND_BRANCH || 'frendly-evening-db-foundation' }}"
             export ADMIN_REPO_URL="https://github.com/sarboys/Frendly-admin.git"
             export ADMIN_BRANCH="main"
             export ADMIN_TARGET_SHA="${{ github.event_name == 'workflow_dispatch' && github.sha || github.event.workflow_run.head_sha }}"
