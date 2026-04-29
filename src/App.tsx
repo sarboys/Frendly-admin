@@ -10,10 +10,13 @@ import { AdminCommunityDetail } from "./admin/pages/CommunityDetail";
 import { AdminContent } from "./admin/pages/Content";
 import { AdminDashboard } from "./admin/pages/Dashboard";
 import { AdminFeatured } from "./admin/pages/Featured";
+import { AdminEveningRouteDetail } from "./admin/pages/EveningRouteDetail";
+import { AdminEveningRoutes } from "./admin/pages/EveningRoutes";
 import { AdminMeetupDetail } from "./admin/pages/MeetupDetail";
 import { AdminMeetups } from "./admin/pages/Meetups";
 import { AdminNotifications } from "./admin/pages/Notifications";
 import { AdminPayments } from "./admin/pages/Payments";
+import { AdminPartners } from "./admin/pages/Partners";
 import { AdminPosters } from "./admin/pages/Posters";
 import { AdminPromos } from "./admin/pages/Promos";
 import { AdminReportDetail } from "./admin/pages/ReportDetail";
@@ -23,9 +26,51 @@ import { AdminSubscriptionSettings } from "./admin/pages/SubscriptionSettings";
 import { AdminSubscriptions } from "./admin/pages/Subscriptions";
 import { AdminUserDetail } from "./admin/pages/UserDetail";
 import { AdminUsers } from "./admin/pages/Users";
+import { AdminVenues } from "./admin/pages/Venues";
 import { AdminVerification } from "./admin/pages/Verification";
+import { isAdminRouteEnabled, type AdminRouteId } from "./admin/portal";
 
 const queryClient = new QueryClient();
+
+const adminRoutes: Array<{
+  id: AdminRouteId;
+  path?: string;
+  index?: true;
+  element: JSX.Element;
+}> = [
+  { id: "dashboard", index: true, element: <AdminDashboard /> },
+  { id: "analytics", path: "analytics", element: <AdminAnalytics /> },
+  { id: "users", path: "users", element: <AdminUsers /> },
+  { id: "userDetail", path: "users/:id", element: <AdminUserDetail /> },
+  { id: "verification", path: "verification", element: <AdminVerification /> },
+  { id: "meetups", path: "meetups", element: <AdminMeetups /> },
+  { id: "meetupDetail", path: "meetups/:id", element: <AdminMeetupDetail /> },
+  { id: "eveningRoutes", path: "evening-routes", element: <AdminEveningRoutes /> },
+  {
+    id: "eveningRouteDetail",
+    path: "evening-routes/:templateId",
+    element: <AdminEveningRouteDetail />,
+  },
+  { id: "venues", path: "venues", element: <AdminVenues /> },
+  { id: "partners", path: "partners", element: <AdminPartners /> },
+  { id: "communities", path: "communities", element: <AdminCommunities /> },
+  { id: "communityDetail", path: "communities/:id", element: <AdminCommunityDetail /> },
+  { id: "posters", path: "posters", element: <AdminPosters /> },
+  { id: "featured", path: "featured", element: <AdminFeatured /> },
+  { id: "notifications", path: "notifications", element: <AdminNotifications /> },
+  { id: "promos", path: "promos", element: <AdminPromos /> },
+  { id: "content", path: "content", element: <AdminContent /> },
+  { id: "subscriptions", path: "subscriptions", element: <AdminSubscriptions /> },
+  {
+    id: "subscriptionSettings",
+    path: "subscriptions/settings",
+    element: <AdminSubscriptionSettings />,
+  },
+  { id: "payments", path: "payments", element: <AdminPayments /> },
+  { id: "reports", path: "reports", element: <AdminReports /> },
+  { id: "reportDetail", path: "reports/:id", element: <AdminReportDetail /> },
+  { id: "settings", path: "settings", element: <AdminSettings /> },
+];
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -35,26 +80,13 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<AdminLayout />}>
-            <Route index element={<AdminDashboard />} />
-            <Route path="analytics" element={<AdminAnalytics />} />
-            <Route path="users" element={<AdminUsers />} />
-            <Route path="users/:id" element={<AdminUserDetail />} />
-            <Route path="verification" element={<AdminVerification />} />
-            <Route path="meetups" element={<AdminMeetups />} />
-            <Route path="meetups/:id" element={<AdminMeetupDetail />} />
-            <Route path="communities" element={<AdminCommunities />} />
-            <Route path="communities/:id" element={<AdminCommunityDetail />} />
-            <Route path="posters" element={<AdminPosters />} />
-            <Route path="featured" element={<AdminFeatured />} />
-            <Route path="notifications" element={<AdminNotifications />} />
-            <Route path="promos" element={<AdminPromos />} />
-            <Route path="content" element={<AdminContent />} />
-            <Route path="subscriptions" element={<AdminSubscriptions />} />
-            <Route path="subscriptions/settings" element={<AdminSubscriptionSettings />} />
-            <Route path="payments" element={<AdminPayments />} />
-            <Route path="reports" element={<AdminReports />} />
-            <Route path="reports/:id" element={<AdminReportDetail />} />
-            <Route path="settings" element={<AdminSettings />} />
+            {adminRoutes.filter((route) => isAdminRouteEnabled(route.id)).map((route) =>
+              route.index ? (
+                <Route key={route.id} index element={route.element} />
+              ) : (
+                <Route key={route.id} path={route.path} element={route.element} />
+              ),
+            )}
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
