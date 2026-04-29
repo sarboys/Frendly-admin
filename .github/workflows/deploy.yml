@@ -1,11 +1,6 @@
 name: Deploy Admin
 
 on:
-  workflow_run:
-    workflows:
-      - CI
-    types:
-      - completed
   workflow_dispatch:
 
 permissions:
@@ -13,12 +8,6 @@ permissions:
 
 jobs:
   deploy:
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (
-        github.event.workflow_run.conclusion == 'success' &&
-        github.event.workflow_run.head_branch == 'main'
-      )
     runs-on: ubuntu-latest
 
     steps:
@@ -37,7 +26,7 @@ jobs:
             export BRANCH="${{ vars.FRENDLY_BACKEND_BRANCH || 'frendly-evening-db-foundation' }}"
             export ADMIN_REPO_URL="https://github.com/sarboys/Frendly-admin.git"
             export ADMIN_BRANCH="main"
-            export ADMIN_TARGET_SHA="${{ github.event_name == 'workflow_dispatch' && github.sha || github.event.workflow_run.head_sha }}"
+            export ADMIN_TARGET_SHA="${{ github.sha }}"
             export ENV_FILE="${APP_DIR}/.env.production"
 
             mkdir -p "$APP_DIR"
