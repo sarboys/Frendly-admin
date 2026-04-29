@@ -1,5 +1,9 @@
 import { adminApiRequest } from "../api/client";
 import type {
+  AiBriefDto,
+  AiBriefInput,
+  AiDraftDto,
+  AiGenerateResponseDto,
   AdminEveningRouteTemplateDto,
   ListResponse,
   PartnerDto,
@@ -121,6 +125,30 @@ export function publishRouteTemplate(templateId: string) {
 export function archiveRouteTemplate(templateId: string) {
   return adminApiRequest<AdminEveningRouteTemplateDto>(
     `/admin/evening/route-templates/${templateId}/archive`,
+    json("POST"),
+  );
+}
+
+export function createAiBrief(input: AiBriefInput) {
+  return adminApiRequest<AiBriefDto>("/admin/evening/ai/briefs", json("POST", input));
+}
+
+export function generateAiDrafts(briefId: string) {
+  return adminApiRequest<AiGenerateResponseDto>(
+    `/admin/evening/ai/briefs/${briefId}/generate`,
+    json("POST"),
+  );
+}
+
+export function listAiDrafts(briefId: string) {
+  return adminApiRequest<ListResponse<AiDraftDto>>(
+    `/admin/evening/ai/briefs/${briefId}/drafts`,
+  );
+}
+
+export function convertAiDraft(draftId: string) {
+  return adminApiRequest<AdminEveningRouteTemplateDto>(
+    `/admin/evening/ai/drafts/${draftId}/convert`,
     json("POST"),
   );
 }

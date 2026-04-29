@@ -1,21 +1,36 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Sparkles } from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AdminApiError } from "../api/client";
-import { createRouteTemplate, listRouteTemplates } from "../evening/api";
-import type { AdminEveningRouteTemplateDto } from "../evening/types";
+import {
+  convertAiDraft,
+  createAiBrief,
+  createRouteTemplate,
+  generateAiDrafts,
+  listRouteTemplates,
+} from "../evening/api";
+import { AiBriefForm } from "../evening/components/AiBriefForm";
+import { AiDraftList } from "../evening/components/AiDraftList";
+import type { AdminEveningRouteTemplateDto, AiBriefInput, AiDraftDto } from "../evening/types";
 import { StatusBadge } from "../components/StatusBadge";
 import { AdminTopbar } from "../components/Topbar";
 
 export const AdminEveningRoutes = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [templates, setTemplates] = useState<AdminEveningRouteTemplateDto[]>([]);
   const [city, setCity] = useState("Москва");
   const [area, setArea] = useState("");
+  const [isAiOpen, setIsAiOpen] = useState(searchParams.get("ai") === "1");
+  const [aiDrafts, setAiDrafts] = useState<AiDraftDto[]>([]);
+  const [aiStatus, setAiStatus] = useState("idle");
+  const [convertingDraftId, setConvertingDraftId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isAiGenerating, setIsAiGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = async () => {
@@ -52,6 +67,37 @@ export const AdminEveningRoutes = () => {
     }
   };
 
+  const generateRoute = async (input: AiBriefInput) => {
+    setIsAiGenerating(true);
+    setAiStatus("creating_brief");
+    setError(null);
+    try {
+      const brief = await createAiBrief(input);
+      setAiStatus("running");
+      const response = await generateAiDrafts(brief.id);
+      setAiDrafts(response.drafts);
+      setAiStatus(response.status);
+    } catch (caught) {
+      setAiStatus("failed");
+      setError(errorMessage(caught));
+    } finally {
+      setIsAiGenerating(false);
+    }
+  };
+
+  const convertDraft = async (draft: AiDraftDto) => {
+    setConvertingDraftId(draft.id);
+    setError(null);
+    try {
+      const template = await convertAiDraft(draft.id);
+      navigate(`/evening-routes/${template.id}`);
+    } catch (caught) {
+      setError(errorMessage(caught));
+    } finally {
+      setConvertingDraftId(null);
+    }
+  };
+
   return (
     <>
       <AdminTopbar
@@ -70,13 +116,37 @@ export const AdminEveningRoutes = () => {
               <Input value={area} onChange={(event) => setArea(event.target.value)} />
             </label>
             <div className="flex items-end">
-              <Button type="button" onClick={() => void createTemplate()} disabled={isSaving}>
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" onClick={() => void createTemplate()} disabled={isSaving}>
                 Создать маршрут
-              </Button>
+                </Button>
+                <Button type="button" variant="outline" onClick={() => setIsAiOpen((value) => !value)}>
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  AI маршрут
+                </Button>
+              </div>
             </div>
           </div>
           {error && <p className="mt-3 text-[12px] text-destructive">{error}</p>}
         </div>
+
+        {isAiOpen && (
+          <div className="grid gap-4 xl:grid-cols-[420px_minmax(0,1fr)]">
+            <AiBriefForm
+              defaultCity={city}
+              defaultArea={area}
+              isSubmitting={isAiGenerating}
+              onSubmit={(input) => void generateRoute(input)}
+            />
+            <AiDraftList
+              drafts={aiDrafts}
+              status={aiStatus}
+              isLoading={isAiGenerating}
+              convertingDraftId={convertingDraftId}
+              onConvert={(draft) => void convertDraft(draft)}
+            />
+          </div>
+        )}
 
         <div className="rounded-lg border border-border bg-card overflow-hidden">
           <div className="flex items-center justify-between border-b border-border px-4 py-3">

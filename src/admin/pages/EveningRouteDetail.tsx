@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Sparkles } from "lucide-react";
+import { useNavigate, useParams } from "react-router-dom";
+import { Button } from "@/components/ui/button";
 import { AdminApiError } from "../api/client";
 import {
   archiveRouteTemplate,
@@ -21,6 +23,7 @@ import { AdminTopbar } from "../components/Topbar";
 
 export const AdminEveningRouteDetail = () => {
   const { templateId } = useParams();
+  const navigate = useNavigate();
   const [template, setTemplate] = useState<AdminEveningRouteTemplateDto | null>(null);
   const [venues, setVenues] = useState<VenueDto[]>([]);
   const [offers, setOffers] = useState<PartnerOfferDto[]>([]);
@@ -106,6 +109,12 @@ export const AdminEveningRouteDetail = () => {
         title="Редактор маршрута"
         subtitle={template?.currentRoute?.title ?? (templateId ? `Шаблон ${templateId}` : "Шаблон")}
       />
+      <div className="flex justify-end px-5 pt-5 lg:px-8">
+        <Button type="button" variant="outline" size="sm" onClick={() => navigate("/evening-routes?ai=1")}>
+          <Sparkles className="mr-2 h-4 w-4" />
+          AI маршрут
+        </Button>
+      </div>
       <div className="grid gap-5 p-5 lg:grid-cols-[minmax(0,1fr)_280px] lg:p-8">
         {isLoading ? (
           <div className="rounded-lg border border-border bg-card p-5 text-[13px] text-muted-foreground">
