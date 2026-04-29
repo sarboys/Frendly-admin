@@ -1,6 +1,7 @@
 import { AdminTopbar } from "../components/Topbar";
 import { StatCard } from "../components/StatCard";
 import { analytics } from "../data";
+import { PartnerOfferAnalytics } from "../evening/components/PartnerOfferAnalytics";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 export const AdminAnalytics = () => {
@@ -14,6 +15,8 @@ export const AdminAnalytics = () => {
           <StatCard label="Ретеншн D7" value={`${analytics.retention.value}%`} delta={analytics.retention.delta} series={analytics.retention.series} hint="Возврат на 7 день" />
           <StatCard label="Ср. сессия" value={`${analytics.sessionAvg.value} мин`} delta={analytics.sessionAvg.delta} series={analytics.sessionAvg.series} />
         </div>
+
+        <PartnerOfferAnalytics />
 
         <Tabs defaultValue="funnel" className="w-full">
           <TabsList>

@@ -7,6 +7,7 @@ import type {
   AdminEveningRouteTemplateDto,
   ListResponse,
   PartnerDto,
+  PartnerOfferAnalyticsDto,
   PartnerInput,
   PartnerOfferDto,
   PartnerOfferInput,
@@ -150,6 +151,12 @@ export function convertAiDraft(draftId: string) {
   return adminApiRequest<AdminEveningRouteTemplateDto>(
     `/admin/evening/ai/drafts/${draftId}/convert`,
     json("POST"),
+  );
+}
+
+export function getPartnerOfferAnalytics(params: QueryParams = {}) {
+  return adminApiRequest<PartnerOfferAnalyticsDto>(
+    withQuery("/admin/evening/analytics/partners", params),
   );
 }
 

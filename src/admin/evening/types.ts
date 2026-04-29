@@ -302,3 +302,41 @@ export type AiGenerateResponseDto = {
   status: string;
   drafts: AiDraftDto[];
 };
+
+export type PartnerOfferAnalyticsFiltersDto = {
+  from: string | null;
+  to: string | null;
+  partnerId: string | null;
+  venueId: string | null;
+};
+
+export type PartnerOfferAnalyticsPartnerDto = {
+  partnerId: string;
+  partnerName: string;
+  city: string | null;
+  activations: number;
+  uniqueUsers: number;
+};
+
+export type PartnerOfferAnalyticsRouteDto = {
+  routeTemplateId: string;
+  routeTitle: string;
+  city: string | null;
+  activations: number;
+  uniqueUsers: number;
+};
+
+export type PartnerOfferAnalyticsDailyDto = {
+  date: string;
+  activations: number;
+  uniqueUsers: number;
+};
+
+export type PartnerOfferAnalyticsDto = {
+  filters: PartnerOfferAnalyticsFiltersDto;
+  activations: number;
+  uniqueUsers: number;
+  topPartners: PartnerOfferAnalyticsPartnerDto[];
+  topRoutes: PartnerOfferAnalyticsRouteDto[];
+  daily: PartnerOfferAnalyticsDailyDto[];
+};
