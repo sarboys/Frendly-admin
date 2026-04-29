@@ -1,3 +1,4 @@
+import { FormEvent, useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { AdminTopbar } from "../components/Topbar";
 import { StatusBadge } from "../components/StatusBadge";
@@ -9,6 +10,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { meetups, users } from "../data";
+import { adminPortal } from "../portal";
+import { cancelPartnerMeetup, getPartnerMeetup, updatePartnerMeetup } from "../partner/portal-api";
+import type { PartnerMeetup } from "../partner/types";
 import {
   ArrowLeft,
   Calendar,
@@ -24,6 +28,10 @@ import {
 import { toast } from "@/hooks/use-toast";
 
 export const AdminMeetupDetail = () => {
+  if (adminPortal === "partner") {
+    return <PartnerMeetupDetail />;
+  }
+
   const { id } = useParams();
   const navigate = useNavigate();
   const meetup = meetups.find((m) => m.id === id) ?? meetups[0];
@@ -216,6 +224,125 @@ export const AdminMeetupDetail = () => {
             </div>
           </TabsContent>
         </Tabs>
+      </div>
+    </>
+  );
+};
+
+const PartnerMeetupDetail = () => {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const [meetup, setMeetup] = useState<PartnerMeetup | null>(null);
+  const [title, setTitle] = useState("");
+  const [place, setPlace] = useState("");
+  const [description, setDescription] = useState("");
+  const [capacity, setCapacity] = useState("20");
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const load = async () => {
+    if (!id) return;
+    setIsLoading(true);
+    setError(null);
+    try {
+      const item = await getPartnerMeetup(id);
+      setMeetup(item);
+      setTitle(item.title);
+      setPlace(item.place);
+      setDescription(item.description);
+      setCapacity(String(item.capacity));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Не удалось загрузить встречу");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void load();
+  }, [id]);
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!id) return;
+    setError(null);
+    try {
+      const updated = await updatePartnerMeetup(id, {
+        title,
+        place,
+        description,
+        capacity: Number(capacity),
+      });
+      setMeetup(updated);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Не удалось сохранить встречу");
+    }
+  };
+
+  const cancel = async () => {
+    if (!id) return;
+    setError(null);
+    try {
+      await cancelPartnerMeetup(id);
+      navigate("/meetups", { replace: true });
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Не удалось отменить встречу");
+    }
+  };
+
+  if (isLoading) {
+    return <><AdminTopbar title="Встреча" subtitle="Загрузка..." /><div className="p-8 text-[13px] text-muted-foreground">Загрузка...</div></>;
+  }
+
+  if (!meetup) {
+    return <><AdminTopbar title="Встреча" subtitle="Не найдена" /><div className="p-8 text-[13px] text-muted-foreground">{error ?? "Встреча не найдена."}</div></>;
+  }
+
+  return (
+    <>
+      <AdminTopbar title={meetup.title} subtitle={`#${meetup.id}`} />
+      <div className="p-5 lg:p-8 space-y-5">
+        <button onClick={() => navigate("/meetups")} className="inline-flex items-center gap-1.5 text-[13px] text-muted-foreground hover:text-foreground">
+          <ArrowLeft className="w-4 h-4" /> Все встречи
+        </button>
+        {error && <p className="text-[12px] text-destructive">{error}</p>}
+        <div className="rounded-lg border border-border bg-card p-5">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <h2 className="font-display text-[22px] font-semibold">{meetup.title}</h2>
+              <div className="mt-3 grid gap-2 text-[13px] text-muted-foreground sm:grid-cols-2">
+                <p className="flex items-center gap-2"><Calendar className="w-4 h-4" /> {new Date(meetup.startsAt).toLocaleDateString("ru")}</p>
+                <p className="flex items-center gap-2"><Clock className="w-4 h-4" /> {meetup.time}</p>
+                <p className="flex items-center gap-2"><MapPin className="w-4 h-4" /> {meetup.place}</p>
+                <p className="flex items-center gap-2"><Users className="w-4 h-4" /> {meetup.participantsCount}/{meetup.capacity}</p>
+              </div>
+            </div>
+            <Button variant="outline" className="gap-2 text-destructive border-destructive/30" onClick={() => void cancel()}>
+              <XCircle className="w-4 h-4" /> Отменить
+            </Button>
+          </div>
+        </div>
+        <form onSubmit={submit} className="rounded-lg border border-border bg-card p-5 grid gap-4 lg:grid-cols-2">
+          <div className="space-y-2">
+            <Label>Название</Label>
+            <Input value={title} onChange={(event) => setTitle(event.target.value)} required />
+          </div>
+          <div className="space-y-2">
+            <Label>Место</Label>
+            <Input value={place} onChange={(event) => setPlace(event.target.value)} required />
+          </div>
+          <div className="space-y-2">
+            <Label>Лимит гостей</Label>
+            <Input type="number" value={capacity} onChange={(event) => setCapacity(event.target.value)} required />
+          </div>
+          <div className="space-y-2 lg:col-span-2">
+            <Label>Описание</Label>
+            <Textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={4} required />
+          </div>
+          <div className="lg:col-span-2 flex justify-end">
+            <Button type="submit">Сохранить</Button>
+          </div>
+        </form>
       </div>
     </>
   );

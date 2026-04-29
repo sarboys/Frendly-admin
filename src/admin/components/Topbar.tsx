@@ -1,6 +1,7 @@
 import { Bell, Search, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { adminPortal } from "../portal";
 
 export const AdminTopbar = ({ title, subtitle }: { title: string; subtitle?: string }) => {
   return (
@@ -31,8 +32,8 @@ export const AdminTopbar = ({ title, subtitle }: { title: string; subtitle?: str
             АД
           </div>
           <div className="hidden sm:block leading-tight">
-            <p className="text-[13px] font-semibold">Админ</p>
-            <p className="text-[11px] text-muted-foreground">root@frendly</p>
+            <p className="text-[13px] font-semibold">{adminPortal === "partner" ? "Партнер" : "Админ"}</p>
+            <p className="text-[11px] text-muted-foreground">{adminPortal === "partner" ? "partner.frendly" : "root@frendly"}</p>
           </div>
         </div>
       </div>

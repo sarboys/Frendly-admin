@@ -1,3 +1,4 @@
+import { FormEvent, useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { AdminTopbar } from "../components/Topbar";
 import { StatusBadge } from "../components/StatusBadge";
@@ -10,6 +11,9 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { communities, users } from "../data";
+import { adminPortal } from "../portal";
+import { archivePartnerCommunity, getPartnerCommunity, updatePartnerCommunity } from "../partner/portal-api";
+import type { PartnerCommunity } from "../partner/types";
 import {
   ArrowLeft,
   Archive,
@@ -32,6 +36,10 @@ const fakePosts = [
 ];
 
 export const AdminCommunityDetail = () => {
+  if (adminPortal === "partner") {
+    return <PartnerCommunityDetail />;
+  }
+
   const { id } = useParams();
   const navigate = useNavigate();
   const community = communities.find((c) => c.id === id) ?? communities[0];
@@ -211,6 +219,121 @@ export const AdminCommunityDetail = () => {
             </div>
           </TabsContent>
         </Tabs>
+      </div>
+    </>
+  );
+};
+
+const PartnerCommunityDetail = () => {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const [community, setCommunity] = useState<PartnerCommunity | null>(null);
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [mood, setMood] = useState("");
+  const [tags, setTags] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const load = async () => {
+    if (!id) return;
+    setIsLoading(true);
+    setError(null);
+    try {
+      const item = await getPartnerCommunity(id);
+      setCommunity(item);
+      setName(item.name);
+      setDescription(item.description);
+      setMood(item.mood);
+      setTags(item.tags.join(", "));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Не удалось загрузить сообщество");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void load();
+  }, [id]);
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!id) return;
+    setError(null);
+    try {
+      const updated = await updatePartnerCommunity(id, {
+        name,
+        description,
+        mood,
+        tags: tags.split(",").map((tag) => tag.trim()).filter(Boolean),
+      });
+      setCommunity(updated);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Не удалось сохранить сообщество");
+    }
+  };
+
+  const archive = async () => {
+    if (!id) return;
+    setError(null);
+    try {
+      await archivePartnerCommunity(id);
+      navigate("/communities", { replace: true });
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Не удалось архивировать сообщество");
+    }
+  };
+
+  if (isLoading) {
+    return <><AdminTopbar title="Сообщество" subtitle="Загрузка..." /><div className="p-8 text-[13px] text-muted-foreground">Загрузка...</div></>;
+  }
+
+  if (!community) {
+    return <><AdminTopbar title="Сообщество" subtitle="Не найдено" /><div className="p-8 text-[13px] text-muted-foreground">{error ?? "Сообщество не найдено."}</div></>;
+  }
+
+  return (
+    <>
+      <AdminTopbar title={community.name} subtitle={`#${community.id}`} />
+      <div className="p-5 lg:p-8 space-y-5">
+        <button onClick={() => navigate("/communities")} className="inline-flex items-center gap-1.5 text-[13px] text-muted-foreground hover:text-foreground">
+          <ArrowLeft className="w-4 h-4" /> Все сообщества
+        </button>
+        {error && <p className="text-[12px] text-destructive">{error}</p>}
+        <div className="rounded-lg border border-border bg-card p-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-16 h-16 rounded-lg bg-primary/10 flex items-center justify-center text-2xl">{community.avatar}</div>
+            <div>
+              <h2 className="font-display text-[20px] font-semibold">{community.name}</h2>
+              <p className="text-[13px] text-muted-foreground">{community.membersCount} участников · {community.newsCount} новостей</p>
+            </div>
+          </div>
+          <Button variant="outline" className="gap-2" onClick={() => void archive()}>
+            <Archive className="w-4 h-4" /> В архив
+          </Button>
+        </div>
+        <form onSubmit={submit} className="rounded-lg border border-border bg-card p-5 grid gap-4 lg:grid-cols-2">
+          <div className="space-y-2">
+            <Label>Название</Label>
+            <Input value={name} onChange={(event) => setName(event.target.value)} required />
+          </div>
+          <div className="space-y-2">
+            <Label>Настроение</Label>
+            <Input value={mood} onChange={(event) => setMood(event.target.value)} required />
+          </div>
+          <div className="space-y-2 lg:col-span-2">
+            <Label>Теги</Label>
+            <Input value={tags} onChange={(event) => setTags(event.target.value)} />
+          </div>
+          <div className="space-y-2 lg:col-span-2">
+            <Label>Описание</Label>
+            <Textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={4} required />
+          </div>
+          <div className="lg:col-span-2 flex justify-end">
+            <Button type="submit">Сохранить</Button>
+          </div>
+        </form>
       </div>
     </>
   );

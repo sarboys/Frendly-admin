@@ -15,6 +15,10 @@ import { AdminEveningRoutes } from "./admin/pages/EveningRoutes";
 import { AdminMeetupDetail } from "./admin/pages/MeetupDetail";
 import { AdminMeetups } from "./admin/pages/Meetups";
 import { AdminNotifications } from "./admin/pages/Notifications";
+import { PartnerLogin } from "./admin/pages/PartnerLogin";
+import { PartnerPending } from "./admin/pages/PartnerPending";
+import { PartnerRegister } from "./admin/pages/PartnerRegister";
+import { PartnerRejected } from "./admin/pages/PartnerRejected";
 import { AdminPayments } from "./admin/pages/Payments";
 import { AdminPartners } from "./admin/pages/Partners";
 import { AdminPosters } from "./admin/pages/Posters";
@@ -28,7 +32,8 @@ import { AdminUserDetail } from "./admin/pages/UserDetail";
 import { AdminUsers } from "./admin/pages/Users";
 import { AdminVenues } from "./admin/pages/Venues";
 import { AdminVerification } from "./admin/pages/Verification";
-import { isAdminRouteEnabled, type AdminRouteId } from "./admin/portal";
+import { PartnerAuthGate } from "./admin/partner/PartnerAuthGate";
+import { adminPortal, isAdminRouteEnabled, type AdminRouteId } from "./admin/portal";
 
 const queryClient = new QueryClient();
 
@@ -79,7 +84,15 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<AdminLayout />}>
+          {adminPortal === "partner" && (
+            <>
+              <Route path="/login" element={<PartnerLogin />} />
+              <Route path="/register" element={<PartnerRegister />} />
+              <Route path="/pending" element={<PartnerPending />} />
+              <Route path="/rejected" element={<PartnerRejected />} />
+            </>
+          )}
+          <Route path="/" element={adminPortal === "partner" ? <PartnerAuthGate /> : <AdminLayout />}>
             {adminRoutes.filter((route) => isAdminRouteEnabled(route.id)).map((route) =>
               route.index ? (
                 <Route key={route.id} index element={route.element} />
@@ -88,7 +101,7 @@ const App = () => (
               ),
             )}
           </Route>
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<Navigate to={adminPortal === "partner" ? "/login" : "/"} replace />} />
         </Routes>
       </BrowserRouter>
     </TooltipProvider>

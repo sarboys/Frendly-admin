@@ -13,11 +13,14 @@ import {
 import { OfferForm } from "../evening/components/OfferForm";
 import { PartnerForm } from "../evening/components/PartnerForm";
 import type { PartnerDto, PartnerInput, PartnerOfferDto, PartnerOfferInput, VenueDto } from "../evening/types";
+import { approvePartnerAccount, listPartnerAccounts, rejectPartnerAccount } from "../partner/admin-accounts-api";
+import type { PartnerAccount } from "../partner/api";
 import { StatusBadge } from "../components/StatusBadge";
 import { AdminTopbar } from "../components/Topbar";
 
 export const AdminPartners = () => {
   const [partners, setPartners] = useState<PartnerDto[]>([]);
+  const [accounts, setAccounts] = useState<PartnerAccount[]>([]);
   const [venues, setVenues] = useState<VenueDto[]>([]);
   const [offers, setOffers] = useState<PartnerOfferDto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -40,11 +43,13 @@ export const AdminPartners = () => {
     setPartnerError(null);
     setOfferError(null);
     try {
-      const [partnerResponse, venueResponse, offerResponse] = await Promise.all([
+      const [accountResponse, partnerResponse, venueResponse, offerResponse] = await Promise.all([
+        listPartnerAccounts(),
         listPartners({ limit: 50 }),
         listVenues({ limit: 50 }),
         listOffers({ limit: 50 }),
       ]);
+      setAccounts(accountResponse.items);
       setPartners(partnerResponse.items);
       setVenues(venueResponse.items);
       setOffers(offerResponse.items);
@@ -97,6 +102,26 @@ export const AdminPartners = () => {
     }
   };
 
+  const approveAccount = async (account: PartnerAccount) => {
+    setPartnerError(null);
+    try {
+      await approvePartnerAccount(account.id);
+      await load();
+    } catch (caught) {
+      setPartnerError(errorMessage(caught));
+    }
+  };
+
+  const rejectAccount = async (account: PartnerAccount) => {
+    setPartnerError(null);
+    try {
+      await rejectPartnerAccount(account.id, "Заявка отклонена командой Frendly");
+      await load();
+    } catch (caught) {
+      setPartnerError(errorMessage(caught));
+    }
+  };
+
   return (
     <>
       <AdminTopbar
@@ -117,6 +142,66 @@ export const AdminPartners = () => {
             error={offerError}
             isSaving={isSavingOffer}
           />
+        </div>
+
+        <div className="rounded-lg border border-border bg-card overflow-hidden">
+          <div className="flex items-center justify-between border-b border-border px-4 py-3">
+            <div>
+              <p className="text-[14px] font-semibold">Заявки партнеров</p>
+              <p className="text-[12px] text-muted-foreground">Регистрации с partner.frendly.tech.</p>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => void load()}>
+              Обновить
+            </Button>
+          </div>
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead>Организация</TableHead>
+                <TableHead>ИНН</TableHead>
+                <TableHead>Город</TableHead>
+                <TableHead>Контакт</TableHead>
+                <TableHead>Статус</TableHead>
+                <TableHead className="text-right">Действие</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {accounts.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-[13px] text-muted-foreground">
+                    Заявок пока нет.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                accounts.map((account) => (
+                  <TableRow key={account.id}>
+                    <TableCell>
+                      <p className="text-[13.5px] font-semibold">{account.organizationName}</p>
+                      <p className="text-[11.5px] text-muted-foreground">{account.email}</p>
+                    </TableCell>
+                    <TableCell className="text-[13px]">{account.taxId}</TableCell>
+                    <TableCell className="text-[13px]">{account.city}</TableCell>
+                    <TableCell className="text-[13px]">{account.contactName} · {account.phone}</TableCell>
+                    <TableCell><StatusBadge status={account.status} /></TableCell>
+                    <TableCell className="text-right">
+                      {account.status === "pending" ? (
+                        <div className="flex justify-end gap-2">
+                          <Button variant="ghost" size="sm" onClick={() => void rejectAccount(account)}>
+                            Отклонить
+                          </Button>
+                          <Button size="sm" onClick={() => void approveAccount(account)}>
+                            Подтвердить
+                          </Button>
+                        </div>
+                      ) : (
+                        <span className="text-[12px] text-muted-foreground">{account.partnerId ?? "Нет partnerId"}</span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
         </div>
 
         <div className="rounded-lg border border-border bg-card overflow-hidden">
