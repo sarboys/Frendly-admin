@@ -1,0 +1,55 @@
+name: Deploy Admin
+
+on:
+  workflow_run:
+    workflows:
+      - CI
+    types:
+      - completed
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.head_branch == 'main'
+      )
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy on server
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: api.frendly.tech
+          username: root
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: 22
+          script_stop: true
+          script: |
+            set -eu
+            export APP_DIR="/opt/frendly"
+            export REPO_URL="https://github.com/sarboys/Frendly.git"
+            export BRANCH="main"
+            export ADMIN_REPO_URL="https://github.com/sarboys/Frendly-admin.git"
+            export ADMIN_BRANCH="main"
+            export ADMIN_TARGET_SHA="${{ github.event_name == 'workflow_dispatch' && github.sha || github.event.workflow_run.head_sha }}"
+            export ENV_FILE="${APP_DIR}/.env.production"
+
+            mkdir -p "$APP_DIR"
+
+            if [ ! -d "$APP_DIR/.git" ]; then
+              git clone --branch "$BRANCH" "$REPO_URL" "$APP_DIR"
+            fi
+
+            cd "$APP_DIR"
+            git fetch origin "$BRANCH"
+            git checkout -B "$BRANCH" "origin/$BRANCH"
+            git reset --hard "origin/$BRANCH"
+            chmod +x scripts/deploy.sh
+            ./scripts/deploy.sh
+            curl --fail --retry 12 --retry-delay 5 "http://127.0.0.1/health"
