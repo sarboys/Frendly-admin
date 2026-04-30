@@ -3,7 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { AdminLayout } from "./admin/AdminLayout";
+import { AdminAuthGate } from "./admin/AdminAuthGate";
 import { AdminAnalytics } from "./admin/pages/Analytics";
 import { AdminCommunities } from "./admin/pages/Communities";
 import { AdminCommunityDetail } from "./admin/pages/CommunityDetail";
@@ -15,6 +15,7 @@ import { AdminEveningRoutes } from "./admin/pages/EveningRoutes";
 import { AdminMeetupDetail } from "./admin/pages/MeetupDetail";
 import { AdminMeetups } from "./admin/pages/Meetups";
 import { AdminNotifications } from "./admin/pages/Notifications";
+import { AdminLogin } from "./admin/pages/AdminLogin";
 import { PartnerLogin } from "./admin/pages/PartnerLogin";
 import { PartnerPending } from "./admin/pages/PartnerPending";
 import { PartnerRegister } from "./admin/pages/PartnerRegister";
@@ -92,7 +93,8 @@ const App = () => (
               <Route path="/rejected" element={<PartnerRejected />} />
             </>
           )}
-          <Route path="/" element={adminPortal === "partner" ? <PartnerAuthGate /> : <AdminLayout />}>
+          {adminPortal !== "partner" && <Route path="/login" element={<AdminLogin />} />}
+          <Route path="/" element={adminPortal === "partner" ? <PartnerAuthGate /> : <AdminAuthGate />}>
             {adminRoutes.filter((route) => isAdminRouteEnabled(route.id)).map((route) =>
               route.index ? (
                 <Route key={route.id} index element={route.element} />
