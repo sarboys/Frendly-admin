@@ -18,6 +18,7 @@ import {
   Megaphone,
   Handshake,
   MapPinned,
+  ClipboardCheck,
   Route as RouteIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -36,6 +37,7 @@ const items: Array<{
   { id: "verification", to: "/verification", label: "Верификация", icon: BadgeCheck },
   { id: "meetups", to: "/meetups", label: "Встречи", icon: CalendarDays },
   { id: "eveningRoutes", to: "/evening-routes", label: "Маршруты", icon: RouteIcon },
+  { id: "routeReview", to: "/route-review", label: "Ревью маршрутов", icon: ClipboardCheck },
   { id: "venues", to: "/venues", label: "Места", icon: MapPinned },
   { id: "partners", to: "/partners", label: "Партнеры", icon: Handshake },
   { id: "communities", to: "/communities", label: "Сообщества", icon: UsersRound },

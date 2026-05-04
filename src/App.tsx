@@ -26,6 +26,7 @@ import { AdminPosters } from "./admin/pages/Posters";
 import { AdminPromos } from "./admin/pages/Promos";
 import { AdminReportDetail } from "./admin/pages/ReportDetail";
 import { AdminReports } from "./admin/pages/Reports";
+import { RouteReviewQueue } from "./admin/pages/RouteReviewQueue";
 import { AdminSettings } from "./admin/pages/Settings";
 import { AdminSubscriptionSettings } from "./admin/pages/SubscriptionSettings";
 import { AdminSubscriptions } from "./admin/pages/Subscriptions";
@@ -52,6 +53,7 @@ const adminRoutes: Array<{
   { id: "meetups", path: "meetups", element: <AdminMeetups /> },
   { id: "meetupDetail", path: "meetups/:id", element: <AdminMeetupDetail /> },
   { id: "eveningRoutes", path: "evening-routes", element: <AdminEveningRoutes /> },
+  { id: "routeReview", path: "route-review", element: <RouteReviewQueue /> },
   {
     id: "eveningRouteDetail",
     path: "evening-routes/:templateId",

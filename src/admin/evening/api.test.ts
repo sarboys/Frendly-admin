@@ -21,6 +21,7 @@ describe("evening admin api", () => {
     expect(fetchMock).toHaveBeenCalledWith(
       "http://localhost:3000/admin/evening/venues?city=%D0%9C%D0%BE%D1%81%D0%BA%D0%B2%D0%B0&limit=20",
       {
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
       },
     );
@@ -48,6 +49,7 @@ describe("evening admin api", () => {
           contact: "owner@example.com",
           notes: "test",
         }),
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
       },
     );
@@ -63,6 +65,7 @@ describe("evening admin api", () => {
       {
         method: "PATCH",
         body: JSON.stringify({ status: "closed" }),
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
       },
     );

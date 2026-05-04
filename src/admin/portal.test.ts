@@ -15,6 +15,7 @@ describe("admin portal config", () => {
     });
     expect(getEnabledAdminRouteIds("internal")).toContain("users");
     expect(getEnabledAdminRouteIds("internal")).toContain("reports");
+    expect(getEnabledAdminRouteIds("internal")).toContain("routeReview");
     expect(getEnabledAdminRouteIds("internal")).toContain("settings");
   });
 

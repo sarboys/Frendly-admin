@@ -9,6 +9,7 @@ export type AdminRouteId =
   | "meetups"
   | "meetupDetail"
   | "eveningRoutes"
+  | "routeReview"
   | "eveningRouteDetail"
   | "venues"
   | "partners"
@@ -41,6 +42,7 @@ const internalRouteIds: AdminRouteId[] = [
   "meetups",
   "meetupDetail",
   "eveningRoutes",
+  "routeReview",
   "eveningRouteDetail",
   "venues",
   "partners",
