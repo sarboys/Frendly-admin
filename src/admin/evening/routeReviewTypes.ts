@@ -109,3 +109,67 @@ export type RouteReviewImportRunInput = {
   from: string;
   to: string;
 };
+
+export type RouteReviewContentItemDto = {
+  id: string;
+  sourceId: string;
+  sourceCode: string | null;
+  sourceName: string | null;
+  sourceItemId: string;
+  sourceUrl: string | null;
+  contentKind: string;
+  city: string;
+  timezone: string;
+  area: string | null;
+  title: string;
+  shortSummary: string | null;
+  category: string;
+  tags: string[];
+  address: string | null;
+  lat: number | null;
+  lng: number | null;
+  startsAt: string | null;
+  endsAt: string | null;
+  priceFrom: number | null;
+  currency: string | null;
+  moderationStatus: string;
+  importedAt: string;
+  expiresAt: string | null;
+};
+
+export type RouteReviewContentItemListDto = {
+  items: RouteReviewContentItemDto[];
+  nextCursor: string | null;
+};
+
+export type RouteReviewGenerationRunDto = {
+  id: string;
+  city: string;
+  timezone: string;
+  area: string | null;
+  mood: string;
+  budget: string;
+  audience: string;
+  format: string;
+  source: string;
+  status: string;
+  promptVersion: string;
+  maxDrafts: number | null;
+  draftCount: number;
+  errorCode: string | null;
+  errorMessage: string | null;
+  createdAt: string;
+  finishedAt: string | null;
+};
+
+export type RouteReviewGenerationRunListDto = {
+  items: RouteReviewGenerationRunDto[];
+};
+
+export type RouteReviewGenerationRunInput = {
+  city: string;
+  area?: string | null;
+  mood: string;
+  budget: string;
+  maxDrafts?: number | null;
+};

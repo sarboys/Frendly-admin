@@ -65,12 +65,31 @@ vi.mock("../evening/routeReviewApi", () => ({
     nextCursor: null,
   }),
   listRouteReviewImportRuns: vi.fn().mockResolvedValue({ items: [] }),
+  listRouteReviewContentItems: vi.fn().mockResolvedValue({
+    items: [
+      {
+        id: "item-1",
+        sourceCode: "timepad",
+        contentKind: "event",
+        city: "Москва",
+        title: "Экскурсия по Москве",
+        category: "culture",
+        address: "Никольская, 12",
+        sourceUrl: "https://example.com/event",
+        moderationStatus: "pending",
+        importedAt: "2026-05-04T10:00:00.000Z",
+      },
+    ],
+    nextCursor: null,
+  }),
+  listRouteReviewGenerationRuns: vi.fn().mockResolvedValue({ items: [] }),
   listRouteReviewSources: vi.fn().mockResolvedValue({ items: [] }),
   approveRouteReviewDraft: vi.fn(),
   rejectRouteReviewDraft: vi.fn(),
   convertRouteReviewDraft: vi.fn(),
   publishRouteReviewDraft: vi.fn(),
   createRouteReviewImportRun: vi.fn(),
+  createRouteReviewGenerationRun: vi.fn(),
 }));
 
 describe("RouteReviewQueue", () => {
@@ -87,6 +106,8 @@ describe("RouteReviewQueue", () => {
 
     expect(await screen.findByText("Тихий центр")).toBeInTheDocument();
     expect(screen.getByText(/Кофейня/)).toBeInTheDocument();
+    expect(screen.getByText("Экскурсия по Москве")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Generate drafts" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Approve" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Reject" })).toBeEnabled();
   });

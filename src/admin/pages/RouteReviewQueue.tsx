@@ -4,8 +4,11 @@ import { AdminTopbar } from "../components/Topbar";
 import {
   approveRouteReviewDraft,
   convertRouteReviewDraft,
+  createRouteReviewGenerationRun,
   createRouteReviewImportRun,
+  listRouteReviewContentItems,
   listRouteReviewDrafts,
+  listRouteReviewGenerationRuns,
   listRouteReviewImportRuns,
   listRouteReviewSources,
   publishRouteReviewDraft,
@@ -14,7 +17,9 @@ import {
 import { RouteReviewDraftCard } from "../evening/components/RouteReviewDraftCard";
 import { RouteReviewFilters } from "../evening/components/RouteReviewFilters";
 import type {
+  RouteReviewContentItemDto,
   RouteReviewDraftDto,
+  RouteReviewGenerationRunDto,
   RouteReviewImportRunDto,
   RouteReviewSourceDto,
 } from "../evening/routeReviewTypes";
@@ -27,6 +32,8 @@ const DEFAULT_SOURCES = ["kudago", "overpass", "timepad"];
 export const RouteReviewQueue = () => {
   const [drafts, setDrafts] = useState<RouteReviewDraftDto[]>([]);
   const [runs, setRuns] = useState<RouteReviewImportRunDto[]>([]);
+  const [contentItems, setContentItems] = useState<RouteReviewContentItemDto[]>([]);
+  const [generationRuns, setGenerationRuns] = useState<RouteReviewGenerationRunDto[]>([]);
   const [sources, setSources] = useState<RouteReviewSourceDto[]>([]);
   const [city, setCity] = useState("Москва");
   const [status, setStatus] = useState("needs_review");
@@ -35,9 +42,14 @@ export const RouteReviewQueue = () => {
   const [from, setFrom] = useState(() => new Date().toISOString().slice(0, 10));
   const [to, setTo] = useState(() => new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10));
   const [selectedSources, setSelectedSources] = useState<string[]>(["kudago", "overpass"]);
+  const [generationCity, setGenerationCity] = useState("Москва");
+  const [generationMood, setGenerationMood] = useState("calm");
+  const [generationBudget, setGenerationBudget] = useState("low");
+  const [generationMaxDrafts, setGenerationMaxDrafts] = useState(2);
   const [busyDraftId, setBusyDraftId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isImporting, setIsImporting] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const availableSources = useMemo(() => {
@@ -49,13 +61,17 @@ export const RouteReviewQueue = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const [draftResponse, runResponse, sourceResponse] = await Promise.all([
+      const [draftResponse, runResponse, itemResponse, generationResponse, sourceResponse] = await Promise.all([
         listRouteReviewDrafts({ city, status, source, limit: 50 }),
         listRouteReviewImportRuns({ city, limit: 20 }),
+        listRouteReviewContentItems({ city, source, limit: 30 }),
+        listRouteReviewGenerationRuns({ city, limit: 20 }),
         listRouteReviewSources(),
       ]);
       setDrafts(draftResponse.items);
       setRuns(runResponse.items);
+      setContentItems(itemResponse.items);
+      setGenerationRuns(generationResponse.items);
       setSources(sourceResponse.items);
     } catch (caught) {
       setError(errorMessage(caught));
@@ -99,6 +115,24 @@ export const RouteReviewQueue = () => {
       setError(errorMessage(caught));
     } finally {
       setIsImporting(false);
+    }
+  };
+
+  const submitGeneration = async () => {
+    setIsGenerating(true);
+    setError(null);
+    try {
+      await createRouteReviewGenerationRun({
+        city: generationCity,
+        mood: generationMood,
+        budget: generationBudget,
+        maxDrafts: generationMaxDrafts,
+      });
+      await load();
+    } catch (caught) {
+      setError(errorMessage(caught));
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -167,6 +201,60 @@ export const RouteReviewQueue = () => {
           {error ? <p className="mt-3 text-[12px] text-destructive">{error}</p> : null}
         </div>
 
+        <div className="rounded-lg border border-border bg-card p-4">
+          <div className="grid gap-3 lg:grid-cols-[160px_140px_140px_120px_auto]">
+            <label className="space-y-1 text-[12px] font-medium text-muted-foreground">
+              <span>Город</span>
+              <Input value={generationCity} onChange={(event) => setGenerationCity(event.target.value)} />
+            </label>
+            <label className="space-y-1 text-[12px] font-medium text-muted-foreground">
+              <span>Mood</span>
+              <select
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-[13px]"
+                value={generationMood}
+                onChange={(event) => setGenerationMood(event.target.value)}
+              >
+                <option value="calm">calm</option>
+                <option value="social">social</option>
+                <option value="date">date</option>
+                <option value="culture">culture</option>
+                <option value="active">active</option>
+              </select>
+            </label>
+            <label className="space-y-1 text-[12px] font-medium text-muted-foreground">
+              <span>Budget</span>
+              <select
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-[13px]"
+                value={generationBudget}
+                onChange={(event) => setGenerationBudget(event.target.value)}
+              >
+                <option value="free">free</option>
+                <option value="low">low</option>
+                <option value="mid">mid</option>
+              </select>
+            </label>
+            <label className="space-y-1 text-[12px] font-medium text-muted-foreground">
+              <span>Drafts</span>
+              <Input
+                type="number"
+                min={1}
+                max={12}
+                value={generationMaxDrafts}
+                onChange={(event) => setGenerationMaxDrafts(Number(event.target.value) || 1)}
+              />
+            </label>
+            <div className="flex items-end">
+              <Button
+                type="button"
+                disabled={isGenerating}
+                onClick={() => void submitGeneration()}
+              >
+                Generate drafts
+              </Button>
+            </div>
+          </div>
+        </div>
+
         <div className="space-y-3">
           {isLoading ? (
             <div className="rounded-lg border border-border bg-card p-4 text-[13px] text-muted-foreground">
@@ -208,13 +296,14 @@ export const RouteReviewQueue = () => {
                 <TableHead>Fetched</TableHead>
                 <TableHead>Normalized</TableHead>
                 <TableHead>Skipped</TableHead>
+                <TableHead>Ошибка</TableHead>
                 <TableHead>Started</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {runs.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-[13px] text-muted-foreground">
+                  <TableCell colSpan={8} className="text-[13px] text-muted-foreground">
                     Runs пока нет.
                   </TableCell>
                 </TableRow>
@@ -227,7 +316,94 @@ export const RouteReviewQueue = () => {
                     <TableCell className="text-[13px] tabular-nums">{run.fetchedCount}</TableCell>
                     <TableCell className="text-[13px] tabular-nums">{run.normalizedCount}</TableCell>
                     <TableCell className="text-[13px] tabular-nums">{run.skippedCount}</TableCell>
+                    <TableCell className="text-[12px] text-destructive">{run.errorCode ?? ""}</TableCell>
                     <TableCell className="text-[13px]">{run.startedAt}</TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+
+        <div className="rounded-lg border border-border bg-card">
+          <div className="border-b border-border px-4 py-3">
+            <p className="text-[14px] font-semibold">Generation runs</p>
+          </div>
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead>Город</TableHead>
+                <TableHead>Mood</TableHead>
+                <TableHead>Budget</TableHead>
+                <TableHead>Статус</TableHead>
+                <TableHead>Drafts</TableHead>
+                <TableHead>Ошибка</TableHead>
+                <TableHead>Created</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {generationRuns.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-[13px] text-muted-foreground">
+                    Generation runs пока нет.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                generationRuns.map((run) => (
+                  <TableRow key={run.id}>
+                    <TableCell className="text-[13px]">{run.city}</TableCell>
+                    <TableCell className="text-[13px]">{run.mood}</TableCell>
+                    <TableCell className="text-[13px]">{run.budget}</TableCell>
+                    <TableCell className="text-[13px]">{run.status}</TableCell>
+                    <TableCell className="text-[13px] tabular-nums">{run.draftCount}</TableCell>
+                    <TableCell className="text-[12px] text-destructive">{run.errorCode ?? ""}</TableCell>
+                    <TableCell className="text-[13px]">{run.createdAt}</TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+
+        <div className="rounded-lg border border-border bg-card">
+          <div className="border-b border-border px-4 py-3">
+            <p className="text-[14px] font-semibold">Imported items</p>
+          </div>
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead>Источник</TableHead>
+                <TableHead>Тип</TableHead>
+                <TableHead>Название</TableHead>
+                <TableHead>Категория</TableHead>
+                <TableHead>Адрес</TableHead>
+                <TableHead>Цена</TableHead>
+                <TableHead>Статус</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {contentItems.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-[13px] text-muted-foreground">
+                    Imported items пока нет.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                contentItems.map((item) => (
+                  <TableRow key={item.id}>
+                    <TableCell className="text-[13px]">{item.sourceCode ?? item.sourceId}</TableCell>
+                    <TableCell className="text-[13px]">{item.contentKind}</TableCell>
+                    <TableCell className="max-w-[420px] text-[13px]">
+                      {item.sourceUrl ? (
+                        <a className="text-primary underline-offset-2 hover:underline" href={item.sourceUrl} target="_blank" rel="noreferrer">
+                          {item.title}
+                        </a>
+                      ) : item.title}
+                    </TableCell>
+                    <TableCell className="text-[13px]">{item.category}</TableCell>
+                    <TableCell className="max-w-[360px] truncate text-[13px]">{item.address ?? ""}</TableCell>
+                    <TableCell className="text-[13px] tabular-nums">{item.priceFrom ?? ""}</TableCell>
+                    <TableCell className="text-[13px]">{item.moderationStatus}</TableCell>
                   </TableRow>
                 ))
               )}

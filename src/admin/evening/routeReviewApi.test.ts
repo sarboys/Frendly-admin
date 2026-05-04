@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   approveRouteReviewDraft,
+  createRouteReviewGenerationRun,
   createRouteReviewImportRun,
+  listRouteReviewContentItems,
   listRouteReviewDrafts,
   rejectRouteReviewDraft,
 } from "./routeReviewApi";
@@ -68,6 +70,44 @@ describe("route review admin api", () => {
           sources: ["kudago", "overpass"],
           from: "2026-05-04",
           to: "2026-05-11",
+        }),
+      }),
+    );
+  });
+
+  it("lists imported content items for review", async () => {
+    const fetchMock = mockFetch({ items: [], nextCursor: null });
+
+    await listRouteReviewContentItems({ city: "Москва", source: "timepad", limit: 25 });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3000/admin/evening/route-review/content-items?city=%D0%9C%D0%BE%D1%81%D0%BA%D0%B2%D0%B0&source=timepad&limit=25",
+      {
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+  });
+
+  it("queues manual route generation runs", async () => {
+    const fetchMock = mockFetch({ id: "batch-1", status: "pending_manual" });
+
+    await createRouteReviewGenerationRun({
+      city: "Москва",
+      mood: "calm",
+      budget: "low",
+      maxDrafts: 2,
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3000/admin/evening/route-review/generation-runs",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          city: "Москва",
+          mood: "calm",
+          budget: "low",
+          maxDrafts: 2,
         }),
       }),
     );

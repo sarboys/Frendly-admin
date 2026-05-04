@@ -1,8 +1,12 @@
 import { adminApiRequest } from "../api/client";
 import type {
   RouteReviewActionInput,
+  RouteReviewContentItemListDto,
   RouteReviewDraftDto,
   RouteReviewDraftListDto,
+  RouteReviewGenerationRunInput,
+  RouteReviewGenerationRunDto,
+  RouteReviewGenerationRunListDto,
   RouteReviewImportRunInput,
   RouteReviewImportRunListDto,
   RouteReviewSourceListDto,
@@ -73,6 +77,25 @@ export function listRouteReviewImportRuns(params: QueryParams = {}) {
 export function createRouteReviewImportRun(input: RouteReviewImportRunInput) {
   return adminApiRequest<RouteReviewImportRunListDto>(
     "/admin/evening/route-review/import-runs",
+    json("POST", input),
+  );
+}
+
+export function listRouteReviewContentItems(params: QueryParams = {}) {
+  return adminApiRequest<RouteReviewContentItemListDto>(
+    withQuery("/admin/evening/route-review/content-items", params),
+  );
+}
+
+export function listRouteReviewGenerationRuns(params: QueryParams = {}) {
+  return adminApiRequest<RouteReviewGenerationRunListDto>(
+    withQuery("/admin/evening/route-review/generation-runs", params),
+  );
+}
+
+export function createRouteReviewGenerationRun(input: RouteReviewGenerationRunInput) {
+  return adminApiRequest<RouteReviewGenerationRunDto>(
+    "/admin/evening/route-review/generation-runs",
     json("POST", input),
   );
 }
