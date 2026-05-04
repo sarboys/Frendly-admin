@@ -102,6 +102,8 @@ vi.mock("../evening/routeReviewApi", () => ({
         moderationStatus: "pending",
         importedAt: "2026-05-04T10:00:00.000Z",
         expiresAt: null,
+        routePlannerBlockedReason: null,
+        rawSummary: "{\"source\":\"timepad\"}",
       },
     ],
     nextCursor: null,
@@ -114,6 +116,44 @@ vi.mock("../evening/routeReviewApi", () => ({
   publishRouteReviewDraft: vi.fn(),
   createRouteReviewImportRun: vi.fn(),
   createRouteReviewGenerationRun: vi.fn(),
+  moderateRouteReviewContentItem: vi.fn().mockResolvedValue({
+    id: "item-1",
+    sourceId: "source-1",
+    sourceCode: "timepad",
+    sourceName: "Timepad",
+    sourceItemId: "event-1",
+    sourceUrl: "https://example.com/event",
+    contentKind: "event",
+    city: "Москва",
+    timezone: "Europe/Moscow",
+    area: null,
+    title: "Экскурсия по Москве",
+    shortSummary: null,
+    category: "culture",
+    tags: [],
+    address: "Никольская, 12",
+    lat: 55.75,
+    lng: 37.61,
+    startsAt: "2026-05-05T16:00:00.000Z",
+    endsAt: null,
+    priceFrom: 0,
+    currency: "RUB",
+    venueName: "Площадка",
+    imageUrl: null,
+    actionUrl: "https://example.com/event",
+    actionKind: "details",
+    priceMode: "free",
+    isAffiliate: false,
+    sourceProvider: "Timepad",
+    placeKind: null,
+    publicStatus: "hidden",
+    hasCoords: true,
+    routePlannerBlockedReason: null,
+    rawSummary: "{\"source\":\"timepad\"}",
+    moderationStatus: "pending",
+    importedAt: "2026-05-04T10:00:00.000Z",
+    expiresAt: null,
+  }),
 }));
 
 describe("RouteReviewQueue", () => {
@@ -136,5 +176,8 @@ describe("RouteReviewQueue", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Контент" }));
     expect(screen.getByText("Экскурсия по Москве")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Экскурсия по Москве"));
+    expect(screen.getByText("Route planner")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Hide" })).toBeEnabled();
   });
 });

@@ -69,6 +69,9 @@ export type EveningRouteTemplateStepDto = {
   perkShort: string | null;
   ticketPrice: number | null;
   ticketCommission: number | null;
+  ticketUrl: string | null;
+  ticketSourceCode: string | null;
+  ticketProvider: string | null;
   sponsored: boolean;
   premium: boolean;
   partnerId: string | null;
@@ -189,6 +192,10 @@ export type RouteRevisionStepInput = {
   emoji?: string | null;
   distanceLabel?: string | null;
   walkMin?: number | null;
+  ticketPrice?: number | null;
+  ticketUrl?: string | null;
+  ticketSourceCode?: string | null;
+  ticketProvider?: string | null;
   lat?: number | null;
   lng?: number | null;
 };

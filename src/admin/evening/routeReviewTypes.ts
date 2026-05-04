@@ -14,6 +14,9 @@ export type RouteReviewDraftStepDto = {
   description: string | null;
   vibeTag: string | null;
   ticketPrice: number | null;
+  ticketUrl: string | null;
+  ticketSourceCode: string | null;
+  ticketProvider: string | null;
   lat: number;
   lng: number;
   sourceUrl: string | null;
@@ -151,6 +154,8 @@ export type RouteReviewContentItemDto = {
   placeKind: string | null;
   publicStatus: string;
   hasCoords: boolean;
+  routePlannerBlockedReason: string | null;
+  rawSummary: string | null;
   moderationStatus: string;
   importedAt: string;
   expiresAt: string | null;

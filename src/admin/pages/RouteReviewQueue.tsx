@@ -11,6 +11,7 @@ import {
   listRouteReviewGenerationRuns,
   listRouteReviewImportRuns,
   listRouteReviewSources,
+  moderateRouteReviewContentItem,
   publishRouteReviewDraft,
   rejectRouteReviewDraft,
 } from "../evening/routeReviewApi";
@@ -37,6 +38,7 @@ export const RouteReviewQueue = () => {
   const [contentItems, setContentItems] = useState<RouteReviewContentItemDto[]>([]);
   const [generationRuns, setGenerationRuns] = useState<RouteReviewGenerationRunDto[]>([]);
   const [sources, setSources] = useState<RouteReviewSourceDto[]>([]);
+  const [selectedContentItem, setSelectedContentItem] = useState<RouteReviewContentItemDto | null>(null);
   const [city, setCity] = useState("Москва");
   const [status, setStatus] = useState("needs_review");
   const [source, setSource] = useState("");
@@ -60,6 +62,7 @@ export const RouteReviewQueue = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isImporting, setIsImporting] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [busyItemAction, setBusyItemAction] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const availableSources = useMemo(() => {
@@ -92,12 +95,31 @@ export const RouteReviewQueue = () => {
       setDrafts(draftResponse.items);
       setRuns(runResponse.items);
       setContentItems(itemResponse.items);
+      setSelectedContentItem((current) =>
+        current == null
+          ? null
+          : itemResponse.items.find((item) => item.id === current.id) ?? current,
+      );
       setGenerationRuns(generationResponse.items);
       setSources(sourceResponse.items);
     } catch (caught) {
       setError(errorMessage(caught));
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const runContentItemAction = async (item: RouteReviewContentItemDto, action: string) => {
+    setBusyItemAction(action);
+    setError(null);
+    try {
+      const updated = await moderateRouteReviewContentItem(item.id, action);
+      setSelectedContentItem(updated);
+      await load();
+    } catch (caught) {
+      setError(errorMessage(caught));
+    } finally {
+      setBusyItemAction(null);
     }
   };
 
@@ -489,6 +511,7 @@ export const RouteReviewQueue = () => {
                 <option value="published">published</option>
                 <option value="hidden">hidden</option>
                 <option value="stale">stale</option>
+                <option value="duplicate">duplicate</option>
               </select>
             </label>
             <label className="space-y-1 text-[12px] font-medium text-muted-foreground">
@@ -546,7 +569,11 @@ export const RouteReviewQueue = () => {
                 </TableRow>
               ) : (
                 contentItems.map((item) => (
-                  <TableRow key={item.id}>
+                  <TableRow
+                    key={item.id}
+                    className="cursor-pointer"
+                    onClick={() => setSelectedContentItem(item)}
+                  >
                     <TableCell className="text-[13px]">{item.sourceCode ?? item.sourceId}</TableCell>
                     <TableCell className="text-[13px]">{item.contentKind}</TableCell>
                     <TableCell className="max-w-[420px] text-[13px]">
@@ -563,7 +590,9 @@ export const RouteReviewQueue = () => {
                       {item.priceMode}
                       {item.priceFrom == null ? "" : ` · ${item.priceFrom}`}
                     </TableCell>
-                    <TableCell className="text-[13px]">{item.hasCoords ? "yes" : "no"}</TableCell>
+                    <TableCell className="text-[13px]">
+                      {item.hasCoords ? "yes" : item.routePlannerBlockedReason ?? "no"}
+                    </TableCell>
                     <TableCell className="text-[13px]">
                       {item.actionUrl ? (
                         <a className="text-primary underline-offset-2 hover:underline" href={item.actionUrl} target="_blank" rel="noreferrer">
@@ -578,6 +607,97 @@ export const RouteReviewQueue = () => {
               )}
             </TableBody>
           </Table>
+          {selectedContentItem ? (
+            <div className="border-t border-border p-4">
+              <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_260px]">
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-[12px] text-muted-foreground">
+                      {selectedContentItem.sourceCode} · {selectedContentItem.contentKind} · {selectedContentItem.publicStatus}
+                    </p>
+                    <h3 className="text-[18px] font-semibold">{selectedContentItem.title}</h3>
+                  </div>
+                  <dl className="grid gap-2 text-[13px] md:grid-cols-2">
+                    <div>
+                      <dt className="text-muted-foreground">Описание</dt>
+                      <dd>{selectedContentItem.shortSummary ?? ""}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-muted-foreground">Площадка</dt>
+                      <dd>{selectedContentItem.venueName ?? ""}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-muted-foreground">Адрес</dt>
+                      <dd>{selectedContentItem.address ?? ""}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-muted-foreground">Координаты</dt>
+                      <dd>
+                        {selectedContentItem.hasCoords
+                          ? `${selectedContentItem.lat}, ${selectedContentItem.lng}`
+                          : "нет"}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-muted-foreground">Route planner</dt>
+                      <dd>{selectedContentItem.routePlannerBlockedReason ?? "можно использовать"}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-muted-foreground">Action URL</dt>
+                      <dd className="break-all">
+                        {selectedContentItem.actionUrl ? (
+                          <a className="text-primary hover:underline" href={selectedContentItem.actionUrl} target="_blank" rel="noreferrer">
+                            {selectedContentItem.actionUrl}
+                          </a>
+                        ) : ""}
+                      </dd>
+                    </div>
+                  </dl>
+                  {selectedContentItem.imageUrl ? (
+                    <img
+                      src={selectedContentItem.imageUrl}
+                      alt=""
+                      className="h-36 w-64 rounded-md object-cover"
+                    />
+                  ) : null}
+                  {selectedContentItem.rawSummary ? (
+                    <pre className="max-h-52 overflow-auto rounded-md bg-muted p-3 text-[11px]">
+                      {selectedContentItem.rawSummary}
+                    </pre>
+                  ) : null}
+                </div>
+                <div className="space-y-2">
+                  {[
+                    ["publish", "Publish"],
+                    ["hide", "Hide"],
+                    ["reject", "Reject"],
+                    ["stale", "Mark stale"],
+                    ["force-free", "Force free"],
+                    ["force-paid", "Force paid"],
+                  ].map(([action, label]) => (
+                    <Button
+                      key={action}
+                      type="button"
+                      variant={action === "reject" ? "destructive" : "outline"}
+                      className="w-full justify-start"
+                      disabled={busyItemAction != null}
+                      onClick={() => void runContentItemAction(selectedContentItem, action)}
+                    >
+                      {busyItemAction === action ? "..." : label}
+                    </Button>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="w-full justify-start"
+                    onClick={() => setSelectedContentItem(null)}
+                  >
+                    Close
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ) : null}
         </div>
       </div>
     </>

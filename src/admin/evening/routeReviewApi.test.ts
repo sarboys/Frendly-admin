@@ -5,6 +5,7 @@ import {
   createRouteReviewImportRun,
   listRouteReviewContentItems,
   listRouteReviewDrafts,
+  moderateRouteReviewContentItem,
   rejectRouteReviewDraft,
 } from "./routeReviewApi";
 
@@ -94,6 +95,19 @@ describe("route review admin api", () => {
         credentials: "include",
         headers: { "Content-Type": "application/json" },
       },
+    );
+  });
+
+  it("sends content moderation actions", async () => {
+    const fetchMock = mockFetch({ id: "item-1", publicStatus: "hidden" });
+
+    await moderateRouteReviewContentItem("item-1", "hide");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3000/admin/evening/route-review/content-items/item-1/hide",
+      expect.objectContaining({
+        method: "POST",
+      }),
     );
   });
 

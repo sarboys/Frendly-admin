@@ -1,6 +1,7 @@
 import { adminApiRequest } from "../api/client";
 import type {
   RouteReviewActionInput,
+  RouteReviewContentItemDto,
   RouteReviewContentItemListDto,
   RouteReviewDraftDto,
   RouteReviewDraftListDto,
@@ -84,6 +85,13 @@ export function createRouteReviewImportRun(input: RouteReviewImportRunInput) {
 export function listRouteReviewContentItems(params: QueryParams = {}) {
   return adminApiRequest<RouteReviewContentItemListDto>(
     withQuery("/admin/evening/route-review/content-items", params),
+  );
+}
+
+export function moderateRouteReviewContentItem(itemId: string, action: string) {
+  return adminApiRequest<RouteReviewContentItemDto>(
+    `/admin/evening/route-review/content-items/${itemId}/${action}`,
+    json("POST"),
   );
 }
 
