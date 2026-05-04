@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { RouteReviewQueue } from "./RouteReviewQueue";
@@ -69,15 +69,39 @@ vi.mock("../evening/routeReviewApi", () => ({
     items: [
       {
         id: "item-1",
+        sourceId: "source-1",
         sourceCode: "timepad",
+        sourceName: "Timepad",
+        sourceItemId: "event-1",
+        sourceUrl: "https://example.com/event",
         contentKind: "event",
         city: "Москва",
+        timezone: "Europe/Moscow",
+        area: null,
         title: "Экскурсия по Москве",
+        shortSummary: null,
         category: "culture",
+        tags: [],
         address: "Никольская, 12",
-        sourceUrl: "https://example.com/event",
+        lat: 55.75,
+        lng: 37.61,
+        startsAt: "2026-05-05T16:00:00.000Z",
+        endsAt: null,
+        priceFrom: 0,
+        currency: "RUB",
+        venueName: "Площадка",
+        imageUrl: null,
+        actionUrl: "https://example.com/event",
+        actionKind: "details",
+        priceMode: "free",
+        isAffiliate: false,
+        sourceProvider: "Timepad",
+        placeKind: null,
+        publicStatus: "published",
+        hasCoords: true,
         moderationStatus: "pending",
         importedAt: "2026-05-04T10:00:00.000Z",
+        expiresAt: null,
       },
     ],
     nextCursor: null,
@@ -106,9 +130,11 @@ describe("RouteReviewQueue", () => {
 
     expect(await screen.findByText("Тихий центр")).toBeInTheDocument();
     expect(screen.getByText(/Кофейня/)).toBeInTheDocument();
-    expect(screen.getByText("Экскурсия по Москве")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Generate drafts" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Approve" })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Reject" })).toBeEnabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Контент" }));
+    expect(screen.getByText("Экскурсия по Москве")).toBeInTheDocument();
   });
 });

@@ -56,7 +56,7 @@ describe("route review admin api", () => {
 
     await createRouteReviewImportRun({
       city: "Москва",
-      sources: ["kudago", "overpass"],
+      sources: ["kudago", "timepad", "advcake_ticketland"],
       from: "2026-05-04",
       to: "2026-05-11",
     });
@@ -67,7 +67,7 @@ describe("route review admin api", () => {
         method: "POST",
         body: JSON.stringify({
           city: "Москва",
-          sources: ["kudago", "overpass"],
+          sources: ["kudago", "timepad", "advcake_ticketland"],
           from: "2026-05-04",
           to: "2026-05-11",
         }),
@@ -78,10 +78,18 @@ describe("route review admin api", () => {
   it("lists imported content items for review", async () => {
     const fetchMock = mockFetch({ items: [], nextCursor: null });
 
-    await listRouteReviewContentItems({ city: "Москва", source: "timepad", limit: 25 });
+    await listRouteReviewContentItems({
+      city: "Москва",
+      source: "advcake_ticketland",
+      contentKind: "event",
+      priceMode: "paid",
+      publicStatus: "published",
+      hasCoords: false,
+      limit: 25,
+    });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "http://localhost:3000/admin/evening/route-review/content-items?city=%D0%9C%D0%BE%D1%81%D0%BA%D0%B2%D0%B0&source=timepad&limit=25",
+      "http://localhost:3000/admin/evening/route-review/content-items?city=%D0%9C%D0%BE%D1%81%D0%BA%D0%B2%D0%B0&source=advcake_ticketland&contentKind=event&priceMode=paid&publicStatus=published&hasCoords=false&limit=25",
       {
         credentials: "include",
         headers: { "Content-Type": "application/json" },

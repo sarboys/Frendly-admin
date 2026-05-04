@@ -27,7 +27,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
-const DEFAULT_SOURCES = ["kudago", "overpass", "timepad"];
+const DEFAULT_SOURCES = ["kudago", "timepad", "advcake_ticketland"];
+const TABS = ["Источники", "Импорты", "Контент", "Маршруты"] as const;
+type RouteReviewTab = (typeof TABS)[number];
 
 export const RouteReviewQueue = () => {
   const [drafts, setDrafts] = useState<RouteReviewDraftDto[]>([]);
@@ -38,6 +40,14 @@ export const RouteReviewQueue = () => {
   const [city, setCity] = useState("Москва");
   const [status, setStatus] = useState("needs_review");
   const [source, setSource] = useState("");
+  const [tab, setTab] = useState<RouteReviewTab>("Маршруты");
+  const [contentKind, setContentKind] = useState("");
+  const [priceMode, setPriceMode] = useState("");
+  const [publicStatus, setPublicStatus] = useState("");
+  const [contentCategory, setContentCategory] = useState("");
+  const [hasCoords, setHasCoords] = useState("");
+  const [contentDateFrom, setContentDateFrom] = useState("");
+  const [contentDateTo, setContentDateTo] = useState("");
   const [importCity, setImportCity] = useState("Москва");
   const [from, setFrom] = useState(() => new Date().toISOString().slice(0, 10));
   const [to, setTo] = useState(() => new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10));
@@ -64,7 +74,18 @@ export const RouteReviewQueue = () => {
       const [draftResponse, runResponse, itemResponse, generationResponse, sourceResponse] = await Promise.all([
         listRouteReviewDrafts({ city, status, source, limit: 50 }),
         listRouteReviewImportRuns({ city, limit: 20 }),
-        listRouteReviewContentItems({ city, source, limit: 30 }),
+        listRouteReviewContentItems({
+          city,
+          source,
+          contentKind,
+          priceMode,
+          publicStatus,
+          category: contentCategory,
+          hasCoords,
+          dateFrom: contentDateFrom,
+          dateTo: contentDateTo,
+          limit: 50,
+        }),
         listRouteReviewGenerationRuns({ city, limit: 20 }),
         listRouteReviewSources(),
       ]);
@@ -152,8 +173,59 @@ export const RouteReviewQueue = () => {
           onSourceChange={setSource}
           onRefresh={() => void load()}
         />
+        <div className="flex flex-wrap gap-2">
+          {TABS.map((item) => (
+            <Button
+              key={item}
+              type="button"
+              variant={tab === item ? "default" : "outline"}
+              onClick={() => setTab(item)}
+            >
+              {item}
+            </Button>
+          ))}
+        </div>
 
-        <div className="rounded-lg border border-border bg-card p-4">
+        <div className={`${tab === "Источники" ? "" : "hidden "}grid gap-3 md:grid-cols-3`}>
+          {sources.length === 0 ? (
+            <div className="rounded-lg border border-border bg-card p-4 text-[13px] text-muted-foreground">
+              Источники пока не найдены.
+            </div>
+          ) : (
+            sources.map((item) => (
+              <div key={item.id} className="rounded-lg border border-border bg-card p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[14px] font-semibold">{item.name}</p>
+                    <p className="text-[12px] text-muted-foreground">{item.code}</p>
+                  </div>
+                  <span className="rounded-md bg-muted px-2 py-1 text-[12px]">{item.status}</span>
+                </div>
+                <dl className="mt-3 grid grid-cols-2 gap-2 text-[12px]">
+                  <div>
+                    <dt className="text-muted-foreground">kind</dt>
+                    <dd>{item.kind}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-muted-foreground">last import</dt>
+                    <dd>{item.lastImportedAt ?? ""}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-muted-foreground">fetched</dt>
+                    <dd className="tabular-nums">{item.lastFetchedCount}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-muted-foreground">public</dt>
+                    <dd className="tabular-nums">{item.lastPublishedCount}</dd>
+                  </div>
+                </dl>
+                {item.lastError ? <p className="mt-3 text-[12px] text-destructive">{item.lastError}</p> : null}
+              </div>
+            ))
+          )}
+        </div>
+
+        <div className={`${tab === "Импорты" ? "" : "hidden "}rounded-lg border border-border bg-card p-4`}>
           <div className="grid gap-3 lg:grid-cols-[160px_160px_160px_minmax(0,1fr)_auto]">
             <label className="space-y-1 text-[12px] font-medium text-muted-foreground">
               <span>Город</span>
@@ -201,7 +273,7 @@ export const RouteReviewQueue = () => {
           {error ? <p className="mt-3 text-[12px] text-destructive">{error}</p> : null}
         </div>
 
-        <div className="rounded-lg border border-border bg-card p-4">
+        <div className={`${tab === "Маршруты" ? "" : "hidden "}rounded-lg border border-border bg-card p-4`}>
           <div className="grid gap-3 lg:grid-cols-[160px_140px_140px_120px_auto]">
             <label className="space-y-1 text-[12px] font-medium text-muted-foreground">
               <span>Город</span>
@@ -256,7 +328,7 @@ export const RouteReviewQueue = () => {
           </div>
         </div>
 
-        <div className="space-y-3">
+        <div className={`${tab === "Маршруты" ? "" : "hidden "}space-y-3`}>
           {isLoading ? (
             <div className="rounded-lg border border-border bg-card p-4 text-[13px] text-muted-foreground">
               Загрузка drafts...
@@ -284,7 +356,7 @@ export const RouteReviewQueue = () => {
           )}
         </div>
 
-        <div className="rounded-lg border border-border bg-card">
+        <div className={`${tab === "Импорты" ? "" : "hidden "}rounded-lg border border-border bg-card`}>
           <div className="border-b border-border px-4 py-3">
             <p className="text-[14px] font-semibold">Import runs</p>
           </div>
@@ -296,6 +368,11 @@ export const RouteReviewQueue = () => {
                 <TableHead>Статус</TableHead>
                 <TableHead>Fetched</TableHead>
                 <TableHead>Normalized</TableHead>
+                <TableHead>Published</TableHead>
+                <TableHead>Paid</TableHead>
+                <TableHead>Free</TableHead>
+                <TableHead>Unknown</TableHead>
+                <TableHead>No coords</TableHead>
                 <TableHead>Skipped</TableHead>
                 <TableHead>Ошибка</TableHead>
                 <TableHead>Started</TableHead>
@@ -304,7 +381,7 @@ export const RouteReviewQueue = () => {
             <TableBody>
               {runs.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-[13px] text-muted-foreground">
+                  <TableCell colSpan={13} className="text-[13px] text-muted-foreground">
                     Runs пока нет.
                   </TableCell>
                 </TableRow>
@@ -316,6 +393,11 @@ export const RouteReviewQueue = () => {
                     <TableCell className="text-[13px]">{run.status}</TableCell>
                     <TableCell className="text-[13px] tabular-nums">{run.fetchedCount}</TableCell>
                     <TableCell className="text-[13px] tabular-nums">{run.normalizedCount}</TableCell>
+                    <TableCell className="text-[13px] tabular-nums">{run.publishedCount}</TableCell>
+                    <TableCell className="text-[13px] tabular-nums">{run.paidCount}</TableCell>
+                    <TableCell className="text-[13px] tabular-nums">{run.freeCount}</TableCell>
+                    <TableCell className="text-[13px] tabular-nums">{run.unknownPriceCount}</TableCell>
+                    <TableCell className="text-[13px] tabular-nums">{run.missingCoordsCount}</TableCell>
                     <TableCell className="text-[13px] tabular-nums">{run.skippedCount}</TableCell>
                     <TableCell className="text-[12px] text-destructive">{run.errorCode ?? ""}</TableCell>
                     <TableCell className="text-[13px]">{run.startedAt}</TableCell>
@@ -326,7 +408,7 @@ export const RouteReviewQueue = () => {
           </Table>
         </div>
 
-        <div className="rounded-lg border border-border bg-card">
+        <div className={`${tab === "Маршруты" ? "" : "hidden "}rounded-lg border border-border bg-card`}>
           <div className="border-b border-border px-4 py-3">
             <p className="text-[14px] font-semibold">Generation runs</p>
           </div>
@@ -366,9 +448,78 @@ export const RouteReviewQueue = () => {
           </Table>
         </div>
 
-        <div className="rounded-lg border border-border bg-card">
+        <div className={`${tab === "Контент" ? "" : "hidden "}rounded-lg border border-border bg-card`}>
           <div className="border-b border-border px-4 py-3">
             <p className="text-[14px] font-semibold">Imported items</p>
+          </div>
+          <div className="grid gap-3 border-b border-border p-4 md:grid-cols-4 xl:grid-cols-8">
+            <label className="space-y-1 text-[12px] font-medium text-muted-foreground">
+              <span>Тип</span>
+              <select
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-[13px]"
+                value={contentKind}
+                onChange={(event) => setContentKind(event.target.value)}
+              >
+                <option value="">any</option>
+                <option value="event">event</option>
+                <option value="place">place</option>
+              </select>
+            </label>
+            <label className="space-y-1 text-[12px] font-medium text-muted-foreground">
+              <span>Цена</span>
+              <select
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-[13px]"
+                value={priceMode}
+                onChange={(event) => setPriceMode(event.target.value)}
+              >
+                <option value="">any</option>
+                <option value="free">free</option>
+                <option value="paid">paid</option>
+                <option value="unknown">unknown</option>
+              </select>
+            </label>
+            <label className="space-y-1 text-[12px] font-medium text-muted-foreground">
+              <span>Public</span>
+              <select
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-[13px]"
+                value={publicStatus}
+                onChange={(event) => setPublicStatus(event.target.value)}
+              >
+                <option value="">any</option>
+                <option value="published">published</option>
+                <option value="hidden">hidden</option>
+                <option value="stale">stale</option>
+              </select>
+            </label>
+            <label className="space-y-1 text-[12px] font-medium text-muted-foreground">
+              <span>Coords</span>
+              <select
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-[13px]"
+                value={hasCoords}
+                onChange={(event) => setHasCoords(event.target.value)}
+              >
+                <option value="">any</option>
+                <option value="true">yes</option>
+                <option value="false">no</option>
+              </select>
+            </label>
+            <label className="space-y-1 text-[12px] font-medium text-muted-foreground">
+              <span>Категория</span>
+              <Input value={contentCategory} onChange={(event) => setContentCategory(event.target.value)} />
+            </label>
+            <label className="space-y-1 text-[12px] font-medium text-muted-foreground">
+              <span>С</span>
+              <Input type="date" value={contentDateFrom} onChange={(event) => setContentDateFrom(event.target.value)} />
+            </label>
+            <label className="space-y-1 text-[12px] font-medium text-muted-foreground">
+              <span>До</span>
+              <Input type="date" value={contentDateTo} onChange={(event) => setContentDateTo(event.target.value)} />
+            </label>
+            <div className="flex items-end">
+              <Button type="button" onClick={() => void load()}>
+                Apply
+              </Button>
+            </div>
           </div>
           <Table>
             <TableHeader>
@@ -377,15 +528,19 @@ export const RouteReviewQueue = () => {
                 <TableHead>Тип</TableHead>
                 <TableHead>Название</TableHead>
                 <TableHead>Категория</TableHead>
-                <TableHead>Адрес</TableHead>
+                <TableHead>Город</TableHead>
+                <TableHead>Площадка</TableHead>
                 <TableHead>Цена</TableHead>
-                <TableHead>Статус</TableHead>
+                <TableHead>Coords</TableHead>
+                <TableHead>Action</TableHead>
+                <TableHead>Public</TableHead>
+                <TableHead>Imported</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {contentItems.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-[13px] text-muted-foreground">
+                  <TableCell colSpan={11} className="text-[13px] text-muted-foreground">
                     Imported items пока нет.
                   </TableCell>
                 </TableRow>
@@ -402,9 +557,22 @@ export const RouteReviewQueue = () => {
                       ) : item.title}
                     </TableCell>
                     <TableCell className="text-[13px]">{item.category}</TableCell>
-                    <TableCell className="max-w-[360px] truncate text-[13px]">{item.address ?? ""}</TableCell>
-                    <TableCell className="text-[13px] tabular-nums">{item.priceFrom ?? ""}</TableCell>
-                    <TableCell className="text-[13px]">{item.moderationStatus}</TableCell>
+                    <TableCell className="text-[13px]">{item.city}</TableCell>
+                    <TableCell className="max-w-[220px] truncate text-[13px]">{item.venueName ?? item.address ?? ""}</TableCell>
+                    <TableCell className="text-[13px] tabular-nums">
+                      {item.priceMode}
+                      {item.priceFrom == null ? "" : ` · ${item.priceFrom}`}
+                    </TableCell>
+                    <TableCell className="text-[13px]">{item.hasCoords ? "yes" : "no"}</TableCell>
+                    <TableCell className="text-[13px]">
+                      {item.actionUrl ? (
+                        <a className="text-primary underline-offset-2 hover:underline" href={item.actionUrl} target="_blank" rel="noreferrer">
+                          {item.actionKind ?? "url"}
+                        </a>
+                      ) : item.actionKind ?? ""}
+                    </TableCell>
+                    <TableCell className="text-[13px]">{item.publicStatus}</TableCell>
+                    <TableCell className="text-[13px]">{item.importedAt}</TableCell>
                   </TableRow>
                 ))
               )}

@@ -78,6 +78,10 @@ export type RouteReviewSourceDto = {
   kind: string;
   status: string;
   lastImportedAt: string | null;
+  baseUrl: string | null;
+  lastError: string | null;
+  lastFetchedCount: number;
+  lastPublishedCount: number;
 };
 
 export type RouteReviewSourceListDto = {
@@ -95,6 +99,11 @@ export type RouteReviewImportRunDto = {
   fetchedCount: number;
   normalizedCount: number;
   skippedCount: number;
+  publishedCount: number;
+  paidCount: number;
+  freeCount: number;
+  unknownPriceCount: number;
+  missingCoordsCount: number;
   errorCode: string | null;
   errorMessage: string | null;
 };
@@ -132,6 +141,16 @@ export type RouteReviewContentItemDto = {
   endsAt: string | null;
   priceFrom: number | null;
   currency: string | null;
+  venueName: string | null;
+  imageUrl: string | null;
+  actionUrl: string | null;
+  actionKind: string | null;
+  priceMode: string;
+  isAffiliate: boolean;
+  sourceProvider: string | null;
+  placeKind: string | null;
+  publicStatus: string;
+  hasCoords: boolean;
   moderationStatus: string;
   importedAt: string;
   expiresAt: string | null;
