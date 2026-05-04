@@ -40,8 +40,8 @@ export const RouteReviewQueue = () => {
   const [source, setSource] = useState("");
   const [importCity, setImportCity] = useState("Москва");
   const [from, setFrom] = useState(() => new Date().toISOString().slice(0, 10));
-  const [to, setTo] = useState(() => new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10));
-  const [selectedSources, setSelectedSources] = useState<string[]>(["kudago", "overpass"]);
+  const [to, setTo] = useState(() => new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10));
+  const [selectedSources, setSelectedSources] = useState<string[]>(DEFAULT_SOURCES);
   const [generationCity, setGenerationCity] = useState("Москва");
   const [generationMood, setGenerationMood] = useState("calm");
   const [generationBudget, setGenerationBudget] = useState("low");
@@ -219,6 +219,7 @@ export const RouteReviewQueue = () => {
                 <option value="date">date</option>
                 <option value="culture">culture</option>
                 <option value="active">active</option>
+                <option value="outdoor">outdoor</option>
               </select>
             </label>
             <label className="space-y-1 text-[12px] font-medium text-muted-foreground">
