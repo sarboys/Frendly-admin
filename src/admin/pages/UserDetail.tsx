@@ -1,44 +1,149 @@
-import { useParams, Link, useNavigate } from "react-router-dom";
-import { AdminTopbar } from "../components/Topbar";
-import { StatusBadge } from "../components/StatusBadge";
-import { StatCard } from "../components/StatCard";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, BadgeCheck, Ban, Key, ShieldAlert } from "lucide-react";
+import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { users, meetups, payments, reports } from "../data";
+import { Textarea } from "@/components/ui/textarea";
+import { AdminApiError } from "../api/client";
+import { StatusBadge } from "../components/StatusBadge";
+import { StatCard } from "../components/StatCard";
+import { AdminTopbar } from "../components/Topbar";
 import {
-  ArrowLeft,
-  BadgeCheck,
-  Ban,
-  Crown,
-  Gift,
-  Key,
-  Mail,
-  MapPin,
-  Phone,
-  ShieldAlert,
-  Trash2,
-} from "lucide-react";
-import { toast } from "@/hooks/use-toast";
+  getAdminUser,
+  listAdminUserAudit,
+  listAdminUserMeetups,
+  listAdminUserReports,
+  revokeAdminUserSessions,
+  suspendAdminUser,
+  unsuspendAdminUser,
+  unverifyAdminUser,
+  updateAdminUserProfile,
+  verifyAdminUser,
+} from "../management/api";
+import { adminPageText, formatDateTime, valueOrDash } from "../management/format";
+
+type ProfileForm = {
+  displayName: string;
+  email: string;
+  phoneNumber: string;
+  city: string;
+  bio: string;
+  avatarUrl: string;
+};
 
 export const AdminUserDetail = () => {
   const { id } = useParams();
+  const userId = id ?? "";
   const navigate = useNavigate();
-  const user = users.find((u) => u.id === id) ?? users[0];
-  const userMeetups = meetups.filter((m) => m.host.startsWith(user.name.split(" ")[0]));
-  const userPayments = payments.filter((p) => p.user.startsWith(user.name.split(" ")[0]));
-  const userReports = reports.filter((r) => r.target.startsWith(user.name.split(" ")[0]));
+  const queryClient = useQueryClient();
+  const [tab, setTab] = useState("profile");
+  const [errorText, setErrorText] = useState<string | null>(null);
+  const userQuery = useQuery({
+    queryKey: ["admin-user", userId],
+    queryFn: () => getAdminUser(userId),
+    enabled: Boolean(userId),
+  });
+  const user = userQuery.data;
+  const [form, setForm] = useState<ProfileForm>({
+    displayName: "",
+    email: "",
+    phoneNumber: "",
+    city: "",
+    bio: "",
+    avatarUrl: "",
+  });
 
-  const action = (msg: string) => toast({ title: msg });
+  useEffect(() => {
+    if (!user) return;
+    const profile = objectValue(user.profile);
+    setForm({
+      displayName: user.displayName,
+      email: user.email ?? "",
+      phoneNumber: user.phoneNumber ?? "",
+      city: textValue(profile.city),
+      bio: textValue(profile.bio),
+      avatarUrl: textValue(profile.avatarUrl),
+    });
+  }, [user]);
+
+  const meetupsQuery = useQuery({
+    queryKey: ["admin-user-meetups", userId],
+    queryFn: () => listAdminUserMeetups(userId),
+    enabled: tab === "meetups" && Boolean(userId),
+  });
+  const reportsQuery = useQuery({
+    queryKey: ["admin-user-reports", userId],
+    queryFn: () => listAdminUserReports(userId),
+    enabled: tab === "reports" && Boolean(userId),
+  });
+  const auditQuery = useQuery({
+    queryKey: ["admin-user-audit", userId],
+    queryFn: () => listAdminUserAudit(userId),
+    enabled: tab === "audit" && Boolean(userId),
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: () =>
+      updateAdminUserProfile(userId, {
+        displayName: form.displayName,
+        email: form.email || null,
+        phoneNumber: form.phoneNumber || null,
+        profile: {
+          city: form.city || null,
+          bio: form.bio || null,
+          avatarUrl: form.avatarUrl || null,
+        },
+      }),
+    onSuccess: (updated) => {
+      setErrorText(null);
+      queryClient.setQueryData(["admin-user", userId], updated);
+    },
+    onError: (error) => setErrorText(apiErrorText(error)),
+  });
+
+  const actionMutation = useMutation({
+    mutationFn: async (action: "verify" | "unverify" | "suspend" | "unsuspend" | "revoke") => {
+      if (action === "verify") return verifyAdminUser(userId);
+      if (action === "unverify") return unverifyAdminUser(userId);
+      if (action === "suspend") {
+        const reason = window.prompt("Причина блокировки") ?? "";
+        return suspendAdminUser(userId, { reason });
+      }
+      if (action === "unsuspend") return unsuspendAdminUser(userId);
+      await revokeAdminUserSessions(userId);
+      return getAdminUser(userId);
+    },
+    onSuccess: (updated) => {
+      setErrorText(null);
+      queryClient.setQueryData(["admin-user", userId], updated);
+    },
+    onError: (error) => setErrorText(apiErrorText(error)),
+  });
+
+  const guardedAction = (action: "verify" | "unverify" | "suspend" | "unsuspend" | "revoke") => {
+    if (action === "suspend" && !window.confirm("Заблокировать пользователя?")) return;
+    if (action === "revoke" && !window.confirm("Отозвать активные сессии?")) return;
+    actionMutation.mutate(action);
+  };
+
+  if (userQuery.isLoading) {
+    return <PageState title="Пользователь" text={adminPageText.loading} />;
+  }
+  if (userQuery.error instanceof AdminApiError && userQuery.error.status === 404) {
+    return <PageState title="Пользователь" text="Пользователь не найден." />;
+  }
+  if (userQuery.isError || !user) {
+    return <PageState title="Пользователь" text={adminPageText.error} />;
+  }
 
   return (
     <>
-      <AdminTopbar title={user.name} subtitle={`@${user.handle} · ${user.email}`} />
+      <AdminTopbar title={user.displayName} subtitle={`${valueOrDash(user.email)} · #${user.id}`} />
       <div className="p-5 lg:p-8 space-y-6">
         <button
           onClick={() => navigate("/users")}
@@ -47,18 +152,17 @@ export const AdminUserDetail = () => {
           <ArrowLeft className="w-4 h-4" /> Все пользователи
         </button>
 
-        {/* Header card */}
         <div className="rounded-lg border border-border bg-card p-6 flex flex-col lg:flex-row gap-6">
           <div className="flex items-center gap-4">
-            <div className="w-20 h-20 rounded-lg bg-gradient-to-br from-primary/30 to-secondary/30 flex items-center justify-center text-2xl font-display font-bold">
-              {user.name.split(" ").map((s) => s[0]).join("").slice(0, 2)}
+            <div className="w-20 h-20 rounded-lg bg-secondary/30 flex items-center justify-center text-2xl font-display font-bold">
+              {initials(user.displayName)}
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="font-display text-[20px] font-semibold">{user.name}</h2>
+                <h2 className="font-display text-[20px] font-semibold">{user.displayName}</h2>
                 {user.verified && <BadgeCheck className="w-5 h-5 text-primary" />}
               </div>
-              <p className="text-[13px] text-muted-foreground">@{user.handle} · #{user.id}</p>
+              <p className="text-[13px] text-muted-foreground">{valueOrDash(user.phoneNumber)} · #{user.id}</p>
               <div className="flex flex-wrap gap-2 mt-2">
                 <StatusBadge status={user.status} />
                 <StatusBadge status={user.plan} />
@@ -67,222 +171,107 @@ export const AdminUserDetail = () => {
           </div>
 
           <div className="flex flex-wrap gap-2 lg:ml-auto self-start">
-            <Button variant="outline" className="gap-2" onClick={() => action("Подписка выдана")}>
-              <Gift className="w-4 h-4" /> Выдать Frendly+
-            </Button>
-            <Button variant="outline" className="gap-2" onClick={() => action("Сбросить пароль — ссылка отправлена")}>
-              <Key className="w-4 h-4" /> Сброс пароля
-            </Button>
-            {user.status !== "banned" ? (
-              <Button variant="outline" className="gap-2 text-destructive border-destructive/30" onClick={() => action("Пользователь забанен")}>
-                <Ban className="w-4 h-4" /> Забанить
+            {user.verified ? (
+              <Button variant="outline" className="gap-2" onClick={() => guardedAction("unverify")}>
+                <BadgeCheck className="w-4 h-4" /> Снять вериф.
               </Button>
             ) : (
-              <Button className="gap-2" onClick={() => action("Бан снят")}>
-                <BadgeCheck className="w-4 h-4" /> Снять бан
+              <Button variant="outline" className="gap-2" onClick={() => guardedAction("verify")}>
+                <BadgeCheck className="w-4 h-4" /> Вериф.
               </Button>
             )}
-            <Button variant="outline" size="icon" className="text-destructive" onClick={() => action("Удаление подтверждено")}>
-              <Trash2 className="w-4 h-4" />
+            {user.status === "suspended" ? (
+              <Button className="gap-2" onClick={() => guardedAction("unsuspend")}>
+                <BadgeCheck className="w-4 h-4" /> Разблок.
+              </Button>
+            ) : (
+              <Button variant="outline" className="gap-2 text-destructive border-destructive/30" onClick={() => guardedAction("suspend")}>
+                <Ban className="w-4 h-4" /> Блок.
+              </Button>
+            )}
+            <Button variant="outline" className="gap-2" onClick={() => guardedAction("revoke")}>
+              <Key className="w-4 h-4" /> Сессии
             </Button>
           </div>
         </div>
 
-        {/* Stats */}
+        {errorText && <div className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-[13px] text-destructive">{errorText}</div>}
+
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard label="Встречи" value={user.meetups.toString()} delta={4.2} series={[1, 2, 3, 4, 5, 6, 7]} />
-          <StatCard label="Жалобы" value={user.reports.toString()} delta={-12} series={[3, 2, 2, 1, 1, 0, 0]} />
-          <StatCard label="Платежи" value={`${userPayments.reduce((a, p) => a + p.amount, 0)} ₽`} delta={2.1} series={[1, 1, 2, 2, 3, 3, 4]} />
-          <StatCard label="Дней с нами" value="42" delta={0} series={[1, 2, 3, 4, 5, 6, 7]} />
+          <StatCard label="Встречи" value={String(user.hostedMeetupsCount + user.joinedMeetupsCount)} delta={0} series={[1, 2, 3, 4, 5, 6, 7]} />
+          <StatCard label="Жалобы" value={String(user.reportsCount)} delta={0} series={[3, 2, 2, 1, 1, 0, 0]} />
+          <StatCard label="Сессии" value={String(user.counts.activeSessions ?? 0)} delta={0} series={[1, 1, 2, 2, 3, 3, 4]} />
+          <StatCard label="С нами" value={formatDateTime(user.createdAt)} delta={0} series={[1, 2, 3, 4, 5, 6, 7]} />
         </div>
 
-        {/* Tabs */}
-        <Tabs defaultValue="profile" className="space-y-4">
+        <Tabs value={tab} onValueChange={setTab} className="space-y-4">
           <TabsList>
             <TabsTrigger value="profile">Профиль</TabsTrigger>
-            <TabsTrigger value="meetups">Встречи ({userMeetups.length})</TabsTrigger>
-            <TabsTrigger value="payments">Платежи ({userPayments.length})</TabsTrigger>
-            <TabsTrigger value="reports">Жалобы ({userReports.length})</TabsTrigger>
-            <TabsTrigger value="permissions">Доступ</TabsTrigger>
+            <TabsTrigger value="meetups">Встречи</TabsTrigger>
+            <TabsTrigger value="reports">Жалобы</TabsTrigger>
+            <TabsTrigger value="audit">Аудит</TabsTrigger>
+            <TabsTrigger value="access">Доступ</TabsTrigger>
           </TabsList>
 
           <TabsContent value="profile">
             <div className="rounded-lg border border-border bg-card p-6 grid lg:grid-cols-2 gap-5">
-              <div className="space-y-2">
-                <Label>Имя</Label>
-                <Input defaultValue={user.name} />
-              </div>
-              <div className="space-y-2">
-                <Label>Handle</Label>
-                <Input defaultValue={user.handle} />
-              </div>
-              <div className="space-y-2">
-                <Label className="flex items-center gap-1.5"><Mail className="w-3.5 h-3.5" /> Email</Label>
-                <Input defaultValue={user.email} />
-              </div>
-              <div className="space-y-2">
-                <Label className="flex items-center gap-1.5"><Phone className="w-3.5 h-3.5" /> Телефон</Label>
-                <Input defaultValue="+7 999 123-45-67" />
-              </div>
-              <div className="space-y-2">
-                <Label className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5" /> Город</Label>
-                <Input defaultValue={user.city} />
-              </div>
-              <div className="space-y-2">
-                <Label>Дата рождения</Label>
-                <Input defaultValue="14 марта 1996" />
-              </div>
+              <Field label="Имя" value={form.displayName} onChange={(value) => setForm({ ...form, displayName: value })} />
+              <Field label="Email" value={form.email} onChange={(value) => setForm({ ...form, email: value })} />
+              <Field label="Телефон" value={form.phoneNumber} onChange={(value) => setForm({ ...form, phoneNumber: value })} />
+              <Field label="Город" value={form.city} onChange={(value) => setForm({ ...form, city: value })} />
+              <Field label="Avatar URL" value={form.avatarUrl} onChange={(value) => setForm({ ...form, avatarUrl: value })} />
               <div className="lg:col-span-2 space-y-2">
                 <Label>О себе</Label>
-                <Textarea rows={3} defaultValue="Винные вечера, бег по утрам, поиск тёплой компании." />
+                <Textarea rows={3} value={form.bio} onChange={(event) => setForm({ ...form, bio: event.target.value })} />
               </div>
               <div className="lg:col-span-2 flex justify-end gap-2">
-                <Button variant="outline">Отмена</Button>
-                <Button onClick={() => action("Профиль сохранён")}>Сохранить</Button>
+                <Button variant="outline" onClick={() => userQuery.refetch()}>Отмена</Button>
+                <Button disabled={saveMutation.isPending} onClick={() => saveMutation.mutate()}>
+                  {saveMutation.isPending ? adminPageText.saving : "Сохранить"}
+                </Button>
               </div>
             </div>
           </TabsContent>
 
           <TabsContent value="meetups">
-            <div className="rounded-lg border border-border bg-card overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow className="hover:bg-transparent">
-                    <TableHead>Название</TableHead>
-                    <TableHead>Город</TableHead>
-                    <TableHead>Когда</TableHead>
-                    <TableHead className="text-right">Участники</TableHead>
-                    <TableHead>Статус</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {userMeetups.length === 0 && (
-                    <TableRow><TableCell colSpan={5} className="text-center text-[13px] text-muted-foreground py-8">Нет встреч</TableCell></TableRow>
-                  )}
-                  {userMeetups.map((m) => (
-                    <TableRow key={m.id}>
-                      <TableCell>
-                        <Link to={`/meetups/${m.id}`} className="text-[13.5px] font-semibold hover:text-primary">{m.title}</Link>
-                      </TableCell>
-                      <TableCell className="text-[13px]">{m.city}</TableCell>
-                      <TableCell className="text-[13px]">{m.date} · {m.time}</TableCell>
-                      <TableCell className="text-right tabular-nums text-[13px]">{m.participants}/{m.capacity}</TableCell>
-                      <TableCell><StatusBadge status={m.status} /></TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="payments">
-            <div className="rounded-lg border border-border bg-card overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow className="hover:bg-transparent">
-                    <TableHead>ID</TableHead>
-                    <TableHead>Метод</TableHead>
-                    <TableHead>Дата</TableHead>
-                    <TableHead className="text-right">Сумма</TableHead>
-                    <TableHead>Тип</TableHead>
-                    <TableHead>Статус</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {userPayments.length === 0 && (
-                    <TableRow><TableCell colSpan={6} className="text-center text-[13px] text-muted-foreground py-8">Платежей нет</TableCell></TableRow>
-                  )}
-                  {userPayments.map((p) => (
-                    <TableRow key={p.id}>
-                      <TableCell className="text-[12.5px] text-muted-foreground">#{p.id}</TableCell>
-                      <TableCell className="text-[13px]">{p.method}</TableCell>
-                      <TableCell className="text-[13px]">{p.date}</TableCell>
-                      <TableCell className="text-right tabular-nums text-[13px] font-semibold">{p.amount} ₽</TableCell>
-                      <TableCell><StatusBadge status={p.type} /></TableCell>
-                      <TableCell><StatusBadge status={p.status} /></TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+            <SimpleRows
+              columns={["Название", "Когда", "Роль", "Статус"]}
+              rows={meetupsQuery.data?.items ?? []}
+              loading={meetupsQuery.isLoading}
+              error={meetupsQuery.isError}
+              render={(row) => [linkCell(`/meetups/${textValue(row.id)}`, textValue(row.title)), formatDateTime(textValue(row.startsAt)), textValue(row.role), <StatusBadge status={textValue(row.status)} />]}
+            />
           </TabsContent>
 
           <TabsContent value="reports">
-            <div className="rounded-lg border border-border bg-card overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow className="hover:bg-transparent">
-                    <TableHead>От кого</TableHead>
-                    <TableHead>Причина</TableHead>
-                    <TableHead>Серьёзность</TableHead>
-                    <TableHead>Дата</TableHead>
-                    <TableHead>Статус</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {userReports.length === 0 && (
-                    <TableRow><TableCell colSpan={5} className="text-center text-[13px] text-muted-foreground py-8 flex items-center justify-center gap-2"><ShieldAlert className="w-4 h-4 text-secondary" /> Жалоб нет</TableCell></TableRow>
-                  )}
-                  {userReports.map((r) => (
-                    <TableRow key={r.id}>
-                      <TableCell className="text-[13px]">{r.reporter}</TableCell>
-                      <TableCell className="text-[13px]">{r.reason}</TableCell>
-                      <TableCell><StatusBadge status={r.severity} /></TableCell>
-                      <TableCell className="text-[13px] text-muted-foreground">{r.date}</TableCell>
-                      <TableCell><StatusBadge status={r.status} /></TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+            <SimpleRows
+              columns={["От кого", "Причина", "Дата", "Статус"]}
+              rows={reportsQuery.data?.items ?? []}
+              loading={reportsQuery.isLoading}
+              error={reportsQuery.isError}
+              render={(row) => [textValue(objectValue(row.reporter).displayName), textValue(row.reason), formatDateTime(textValue(row.createdAt)), <StatusBadge status={textValue(row.status)} />]}
+            />
           </TabsContent>
 
-          <TabsContent value="permissions">
-            <div className="rounded-lg border border-border bg-card p-6 space-y-5 max-w-2xl">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-[14px] font-semibold flex items-center gap-1.5"><BadgeCheck className="w-4 h-4 text-primary" /> Верификация</p>
-                  <p className="text-[12px] text-muted-foreground">Подтверждённый профиль с галочкой</p>
-                </div>
-                <Switch defaultChecked={user.verified} />
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-[14px] font-semibold flex items-center gap-1.5"><Crown className="w-4 h-4 text-primary" /> After Dark</p>
-                  <p className="text-[12px] text-muted-foreground">Доступ к 18+ контенту</p>
-                </div>
-                <Switch defaultChecked={user.plan === "afterdark"} />
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-[14px] font-semibold">Может создавать встречи</p>
-                  <p className="text-[12px] text-muted-foreground">Хост-привилегии</p>
-                </div>
-                <Switch defaultChecked />
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-[14px] font-semibold">Чат отключён</p>
-                  <p className="text-[12px] text-muted-foreground">Пользователь не может писать в чатах</p>
-                </div>
-                <Switch />
-              </div>
+          <TabsContent value="audit">
+            <SimpleRows
+              columns={["Метод", "Путь", "Статус", "Дата"]}
+              rows={auditQuery.data?.items ?? []}
+              loading={auditQuery.isLoading}
+              error={auditQuery.isError}
+              render={(row) => [textValue(row.method), textValue(row.path), valueOrDash(numberValue(row.statusCode)), formatDateTime(textValue(row.createdAt))]}
+            />
+          </TabsContent>
 
-              <div className="pt-4 border-t border-border space-y-2">
-                <Label>Принудительный план</Label>
-                <Select defaultValue={user.plan}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="free">Free</SelectItem>
-                    <SelectItem value="plus">Frendly+</SelectItem>
-                    <SelectItem value="afterdark">After Dark</SelectItem>
-                  </SelectContent>
-                </Select>
+          <TabsContent value="access">
+            <div className="rounded-lg border border-border bg-card p-6 space-y-4 max-w-2xl">
+              <p className="text-[14px] font-semibold flex items-center gap-1.5"><ShieldAlert className="w-4 h-4 text-secondary" /> Доступ</p>
+              <div className="flex flex-wrap gap-2">
+                <StatusBadge status={user.status} />
+                <StatusBadge status={user.verified ? "approved" : "pending"} />
+                <StatusBadge status={user.plan} />
               </div>
-
-              <div className="flex justify-end">
-                <Button onClick={() => action("Доступ обновлён")}>Применить</Button>
-              </div>
+              <p className="text-[13px] text-muted-foreground">Причина блокировки: {valueOrDash(user.suspensionReason)}</p>
             </div>
           </TabsContent>
         </Tabs>
@@ -290,3 +279,90 @@ export const AdminUserDetail = () => {
     </>
   );
 };
+
+function Field({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  return (
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      <Input value={value} onChange={(event) => onChange(event.target.value)} />
+    </div>
+  );
+}
+
+function SimpleRows({
+  columns,
+  rows,
+  loading,
+  error,
+  render,
+}: {
+  columns: string[];
+  rows: Array<Record<string, unknown>>;
+  loading: boolean;
+  error: boolean;
+  render: (row: Record<string, unknown>) => Array<ReactNode>;
+}) {
+  return (
+    <div className="rounded-lg border border-border bg-card overflow-hidden">
+      <Table>
+        <TableHeader>
+          <TableRow className="hover:bg-transparent">
+            {columns.map((column) => <TableHead key={column}>{column}</TableHead>)}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {loading && <StateRow colSpan={columns.length} text={adminPageText.loading} />}
+          {error && <StateRow colSpan={columns.length} text={adminPageText.error} />}
+          {!loading && !error && rows.length === 0 && <StateRow colSpan={columns.length} text={adminPageText.empty} />}
+          {rows.map((row, index) => (
+            <TableRow key={textValue(row.id) || index}>
+              {render(row).map((cell, cellIndex) => <TableCell key={cellIndex} className="text-[13px]">{cell}</TableCell>)}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
+function StateRow({ colSpan, text }: { colSpan: number; text: string }) {
+  return (
+    <TableRow>
+      <TableCell colSpan={colSpan} className="text-center text-[13px] text-muted-foreground py-8">{text}</TableCell>
+    </TableRow>
+  );
+}
+
+function PageState({ title, text }: { title: string; text: string }) {
+  return (
+    <>
+      <AdminTopbar title={title} subtitle="" />
+      <div className="p-5 lg:p-8 text-[13px] text-muted-foreground">{text}</div>
+    </>
+  );
+}
+
+function linkCell(path: string, text: string) {
+  return <Link to={path} className="font-semibold hover:text-primary">{text || "—"}</Link>;
+}
+
+function initials(name: string) {
+  return name.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase();
+}
+
+function objectValue(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+function textValue(value: unknown) {
+  return typeof value === "string" ? value : "";
+}
+
+function numberValue(value: unknown) {
+  return typeof value === "number" ? value : null;
+}
+
+function apiErrorText(error: unknown) {
+  if (error instanceof AdminApiError) return `${error.code}: ${error.message}`;
+  return "admin_api_error";
+}

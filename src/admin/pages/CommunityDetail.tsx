@@ -1,39 +1,60 @@
-import { FormEvent, useEffect, useState } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
-import { AdminTopbar } from "../components/Topbar";
-import { StatusBadge } from "../components/StatusBadge";
-import { StatCard } from "../components/StatCard";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { FormEvent, type ReactNode, useEffect, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { Archive, ArrowLeft, RotateCcw, Trash2, UserMinus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { communities, users } from "../data";
-import { adminPortal } from "../portal";
+import { Textarea } from "@/components/ui/textarea";
+import { StatusBadge } from "../components/StatusBadge";
+import { AdminTopbar } from "../components/Topbar";
+import {
+  archiveAdminCommunity,
+  createAdminCommunityMedia,
+  createAdminCommunityNews,
+  deleteAdminCommunityMedia,
+  deleteAdminCommunityNews,
+  getAdminCommunity,
+  listAdminCommunityMedia,
+  listAdminCommunityMembers,
+  listAdminCommunityNews,
+  removeAdminCommunityMember,
+  restoreAdminCommunity,
+  updateAdminCommunity,
+  updateAdminCommunityMedia,
+  updateAdminCommunityMemberRole,
+  updateAdminCommunityNews,
+} from "../management/api";
+import { adminPageText, formatDateTime, valueOrDash } from "../management/format";
 import { archivePartnerCommunity, getPartnerCommunity, updatePartnerCommunity } from "../partner/portal-api";
 import type { PartnerCommunity } from "../partner/types";
-import {
-  ArrowLeft,
-  Archive,
-  Crown,
-  EyeOff,
-  Flag,
-  MessageSquare,
-  Pin,
-  ShieldCheck,
-  Trash2,
-  UserMinus,
-} from "lucide-react";
-import { toast } from "@/hooks/use-toast";
+import { adminPortal } from "../portal";
 
-const fakePosts = [
-  { id: "p1", author: "Аня К.", text: "Кто завтра на пробежку 8 утра?", reports: 0, pinned: true, time: "2 ч" },
-  { id: "p2", author: "Никита О.", text: "Скинул трек в плейлист, послушайте!", reports: 0, pinned: false, time: "5 ч" },
-  { id: "p3", author: "Артём Б.", text: "Спам про крипту в комментариях", reports: 3, pinned: false, time: "1 д" },
-  { id: "p4", author: "Соня Л.", text: "Новый плейлист для медленных вечеров", reports: 0, pinned: false, time: "2 д" },
-];
+type CommunityForm = {
+  name: string;
+  avatar: string;
+  description: string;
+  privacy: string;
+  tags: string;
+  joinRule: string;
+  premiumOnly: boolean;
+  mood: string;
+  sharedMediaLabel: string;
+};
+
+const defaultNewsForm = {
+  title: "",
+  blurb: "",
+  timeLabel: "сейчас",
+};
+
+const defaultMediaForm = {
+  emoji: "📷",
+  label: "",
+  kind: "photo",
+};
 
 export const AdminCommunityDetail = () => {
   if (adminPortal === "partner") {
@@ -41,182 +62,354 @@ export const AdminCommunityDetail = () => {
   }
 
   const { id } = useParams();
+  const communityId = id ?? "";
   const navigate = useNavigate();
-  const community = communities.find((c) => c.id === id) ?? communities[0];
-  const members = users.slice(0, 6);
+  const queryClient = useQueryClient();
+  const [tab, setTab] = useState("settings");
+  const [error, setError] = useState<string | null>(null);
+  const [form, setForm] = useState<CommunityForm>({
+    name: "",
+    avatar: "🤝",
+    description: "",
+    privacy: "public",
+    tags: "",
+    joinRule: "",
+    premiumOnly: false,
+    mood: "",
+    sharedMediaLabel: "",
+  });
+  const [newsForm, setNewsForm] = useState(defaultNewsForm);
+  const [mediaForm, setMediaForm] = useState(defaultMediaForm);
 
-  const action = (msg: string) => toast({ title: msg });
+  const communityQuery = useQuery({
+    queryKey: ["admin-community", communityId],
+    queryFn: () => getAdminCommunity(communityId),
+    enabled: Boolean(communityId),
+  });
+  const community = communityQuery.data;
+
+  useEffect(() => {
+    if (!community) return;
+    setForm({
+      name: community.name,
+      avatar: community.avatar,
+      description: community.description,
+      privacy: community.privacy,
+      tags: Array.isArray(community.tags) ? community.tags.join(", ") : "",
+      joinRule: community.joinRule,
+      premiumOnly: community.premiumOnly,
+      mood: community.mood,
+      sharedMediaLabel: community.sharedMediaLabel,
+    });
+  }, [community]);
+
+  const membersQuery = useQuery({
+    queryKey: ["admin-community-members", communityId],
+    queryFn: () => listAdminCommunityMembers(communityId),
+    enabled: tab === "members" && Boolean(communityId),
+  });
+  const newsQuery = useQuery({
+    queryKey: ["admin-community-news", communityId],
+    queryFn: () => listAdminCommunityNews(communityId),
+    enabled: tab === "news" && Boolean(communityId),
+  });
+  const mediaQuery = useQuery({
+    queryKey: ["admin-community-media", communityId],
+    queryFn: () => listAdminCommunityMedia(communityId),
+    enabled: tab === "media" && Boolean(communityId),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: () =>
+      updateAdminCommunity(communityId, {
+        name: form.name,
+        avatar: form.avatar,
+        description: form.description,
+        privacy: form.privacy,
+        tags: splitTags(form.tags),
+        joinRule: form.joinRule,
+        premiumOnly: form.premiumOnly,
+        mood: form.mood,
+        sharedMediaLabel: form.sharedMediaLabel,
+      }),
+    onSuccess: (updated) => {
+      setError(null);
+      queryClient.setQueryData(["admin-community", communityId], updated);
+    },
+    onError: (caught) => setError(caught instanceof Error ? caught.message : "Не удалось сохранить сообщество"),
+  });
+
+  const archiveMutation = useMutation({
+    mutationFn: () => {
+      if (!community) throw new Error("Community not loaded");
+      return community.archivedAt ? restoreAdminCommunity(communityId) : archiveAdminCommunity(communityId);
+    },
+    onSuccess: (updated) => {
+      setError(null);
+      queryClient.setQueryData(["admin-community", communityId], updated);
+    },
+    onError: (caught) => setError(caught instanceof Error ? caught.message : "Не удалось изменить статус"),
+  });
+
+  const roleMutation = useMutation({
+    mutationFn: ({ memberId, role }: { memberId: string; role: string }) =>
+      updateAdminCommunityMemberRole(communityId, memberId, { role }),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["admin-community-members", communityId] }),
+  });
+  const removeMemberMutation = useMutation({
+    mutationFn: (memberId: string) => removeAdminCommunityMember(communityId, memberId),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["admin-community-members", communityId] }),
+  });
+  const createNewsMutation = useMutation({
+    mutationFn: () => createAdminCommunityNews(communityId, newsForm),
+    onSuccess: () => {
+      setNewsForm(defaultNewsForm);
+      void queryClient.invalidateQueries({ queryKey: ["admin-community-news", communityId] });
+    },
+  });
+  const deleteNewsMutation = useMutation({
+    mutationFn: (newsId: string) => deleteAdminCommunityNews(communityId, newsId),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["admin-community-news", communityId] }),
+  });
+  const updateNewsMutation = useMutation({
+    mutationFn: ({ newsId, input }: { newsId: string; input: Record<string, unknown> }) =>
+      updateAdminCommunityNews(communityId, newsId, input),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["admin-community-news", communityId] }),
+  });
+  const createMediaMutation = useMutation({
+    mutationFn: () => createAdminCommunityMedia(communityId, mediaForm),
+    onSuccess: () => {
+      setMediaForm(defaultMediaForm);
+      void queryClient.invalidateQueries({ queryKey: ["admin-community-media", communityId] });
+    },
+  });
+  const deleteMediaMutation = useMutation({
+    mutationFn: (mediaId: string) => deleteAdminCommunityMedia(communityId, mediaId),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["admin-community-media", communityId] }),
+  });
+  const updateMediaMutation = useMutation({
+    mutationFn: ({ mediaId, input }: { mediaId: string; input: Record<string, unknown> }) =>
+      updateAdminCommunityMedia(communityId, mediaId, input),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["admin-community-media", communityId] }),
+  });
+
+  const ownersOnPage = (membersQuery.data?.items ?? []).filter((member) => textValue(member.role) === "owner").length;
+
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    updateMutation.mutate();
+  };
+
+  const submitNews = (event: FormEvent) => {
+    event.preventDefault();
+    createNewsMutation.mutate();
+  };
+
+  const submitMedia = (event: FormEvent) => {
+    event.preventDefault();
+    createMediaMutation.mutate();
+  };
+
+  const editNews = (row: Record<string, unknown>) => {
+    const title = window.prompt("Название новости", textValue(row.title));
+    if (title === null) return;
+    const blurb = window.prompt("Текст новости", textValue(row.blurb));
+    if (blurb === null) return;
+    updateNewsMutation.mutate({
+      newsId: textValue(row.id),
+      input: { title, blurb, timeLabel: textValue(row.timeLabel) || "сейчас" },
+    });
+  };
+
+  const editMedia = (row: Record<string, unknown>) => {
+    const label = window.prompt("Название медиа", textValue(row.label));
+    if (label === null) return;
+    updateMediaMutation.mutate({
+      mediaId: textValue(row.id),
+      input: { label, emoji: textValue(row.emoji) || "📷", kind: textValue(row.kind) || "photo" },
+    });
+  };
+
+  if (communityQuery.isLoading) {
+    return <PageState text={adminPageText.loading} />;
+  }
+  if (communityQuery.isError || !community) {
+    return <PageState text="Сообщество не найдено." />;
+  }
 
   return (
     <>
-      <AdminTopbar title={community.name} subtitle={`#${community.id} · владелец ${community.owner}`} />
+      <AdminTopbar title={community.name} subtitle={`#${community.id} · владелец ${community.ownerName}`} />
       <div className="p-5 lg:p-8 space-y-6">
-        <button
-          onClick={() => navigate("/communities")}
-          className="inline-flex items-center gap-1.5 text-[13px] text-muted-foreground hover:text-foreground"
-        >
+        <button onClick={() => navigate("/communities")} className="inline-flex items-center gap-1.5 text-[13px] text-muted-foreground hover:text-foreground">
           <ArrowLeft className="w-4 h-4" /> Все сообщества
         </button>
+        {error && <p className="text-[12px] text-destructive">{error}</p>}
 
-        {/* Header */}
-        <div className="rounded-lg border border-border bg-card p-6 flex flex-col lg:flex-row gap-6">
+        <div className="rounded-lg border border-border bg-card p-6 flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
           <div className="flex items-center gap-4">
-            <div className="w-20 h-20 rounded-lg bg-gradient-to-br from-secondary/30 to-primary/30 flex items-center justify-center text-2xl font-display font-bold">
-              {community.name.split(" ").map((s) => s[0]).join("").slice(0, 2)}
-            </div>
+            <div className="w-16 h-16 rounded-lg bg-primary/10 flex items-center justify-center text-2xl">{community.avatar}</div>
             <div>
               <h2 className="font-display text-[20px] font-semibold">{community.name}</h2>
-              <p className="text-[13px] text-muted-foreground">{community.city} · создано {community.created}</p>
-              <div className="flex flex-wrap gap-2 mt-2">
-                <StatusBadge status={community.status} />
+              <p className="text-[13px] text-muted-foreground">
+                {valueOrDash(community.city)} · {community.membersCount} участников · {community.newsCount} новостей
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <StatusBadge status={community.archivedAt ? "archived" : community.privacy} />
+                {community.premiumOnly && <StatusBadge status="plus" />}
               </div>
             </div>
           </div>
-
-          <div className="flex flex-wrap gap-2 lg:ml-auto self-start">
-            <Button variant="outline" className="gap-2" onClick={() => action("Закреплено в каталоге")}>
-              <Pin className="w-4 h-4" /> В топ
-            </Button>
-            <Button variant="outline" className="gap-2" onClick={() => action("Помечено как verified")}>
-              <ShieldCheck className="w-4 h-4" /> Верифицировать
-            </Button>
-            <Button variant="outline" className="gap-2" onClick={() => action("В архив")}>
-              <Archive className="w-4 h-4" /> В архив
-            </Button>
-            <Button variant="outline" size="icon" className="text-destructive" onClick={() => action("Сообщество удалено")}>
-              <Trash2 className="w-4 h-4" />
-            </Button>
-          </div>
+          <Button
+            variant="outline"
+            className="gap-2 self-start"
+            disabled={archiveMutation.isPending}
+            onClick={() => window.confirm(community.archivedAt ? "Восстановить сообщество?" : "Отправить сообщество в архив?") && archiveMutation.mutate()}
+          >
+            {community.archivedAt ? <RotateCcw className="w-4 h-4" /> : <Archive className="w-4 h-4" />}
+            {community.archivedAt ? "Восстановить" : "В архив"}
+          </Button>
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard label="Участники" value={community.members.toString()} delta={6.4} series={[400, 410, 420, 440, 460, 470, 482]} />
-          <StatCard label="Посты" value={community.posts.toString()} delta={3.1} series={[100, 105, 110, 115, 118, 122, 124]} />
-          <StatCard label="Активные за нед." value="184" delta={2.2} series={[150, 160, 165, 170, 175, 180, 184]} />
-          <StatCard label="Жалобы" value="3" delta={-25} series={[5, 4, 4, 3, 3, 3, 3]} />
-        </div>
-
-        <Tabs defaultValue="posts">
+        <Tabs value={tab} onValueChange={setTab}>
           <TabsList>
-            <TabsTrigger value="posts">Посты</TabsTrigger>
-            <TabsTrigger value="members">Участники ({community.members})</TabsTrigger>
-            <TabsTrigger value="settings">Настройки</TabsTrigger>
+            <TabsTrigger value="settings" onClick={() => setTab("settings")}>Настройки</TabsTrigger>
+            <TabsTrigger value="members" onClick={() => setTab("members")}>Участники</TabsTrigger>
+            <TabsTrigger value="news" onClick={() => setTab("news")}>Новости</TabsTrigger>
+            <TabsTrigger value="media" onClick={() => setTab("media")}>Медиа</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="posts" className="mt-4">
-            <div className="rounded-lg border border-border bg-card divide-y divide-border">
-              {fakePosts.map((p) => (
-                <div key={p.id} className="p-4 flex items-start gap-3">
-                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center text-[11px] font-semibold shrink-0">
-                    {p.author.split(" ").map((s) => s[0]).join("").slice(0, 2)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="text-[13.5px] font-semibold">{p.author}</p>
-                      <p className="text-[11.5px] text-muted-foreground">{p.time}</p>
-                      {p.pinned && <Pin className="w-3 h-3 text-primary" />}
-                      {p.reports > 0 && (
-                        <span className="inline-flex items-center gap-1 text-[11px] text-destructive">
-                          <Flag className="w-3 h-3" /> {p.reports}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-[13.5px] mt-0.5">{p.text}</p>
-                  </div>
-                  <div className="flex gap-1 shrink-0">
-                    <Button size="sm" variant="ghost" className="h-8" onClick={() => action(p.pinned ? "Откреплено" : "Закреплено")}>
-                      <Pin className="w-3.5 h-3.5" />
-                    </Button>
-                    <Button size="sm" variant="ghost" className="h-8" onClick={() => action("Скрыто")}>
-                      <EyeOff className="w-3.5 h-3.5" />
-                    </Button>
-                    <Button size="sm" variant="ghost" className="h-8 text-destructive" onClick={() => action("Пост удалён")}>
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
+          <TabsContent value="settings" className="mt-4">
+            <form onSubmit={submit} className="rounded-lg border border-border bg-card p-6 grid lg:grid-cols-2 gap-5">
+              <Field label="Название" value={form.name} onChange={(value) => setForm({ ...form, name: value })} />
+              <Field label="Иконка" value={form.avatar} onChange={(value) => setForm({ ...form, avatar: value })} />
+              <SelectField label="Приватность" value={form.privacy} values={["public", "private"]} onChange={(value) => setForm({ ...form, privacy: value })} />
+              <Field label="Теги через запятую" value={form.tags} onChange={(value) => setForm({ ...form, tags: value })} required={false} />
+              <Field label="Правило вступления" value={form.joinRule} onChange={(value) => setForm({ ...form, joinRule: value })} />
+              <Field label="Настроение" value={form.mood} onChange={(value) => setForm({ ...form, mood: value })} />
+              <Field label="Медиа label" value={form.sharedMediaLabel} onChange={(value) => setForm({ ...form, sharedMediaLabel: value })} />
+              <label className="flex items-center gap-2 text-[13px]">
+                <input
+                  type="checkbox"
+                  checked={form.premiumOnly}
+                  onChange={(event) => setForm({ ...form, premiumOnly: event.target.checked })}
+                />
+                Только premium
+              </label>
+              <div className="lg:col-span-2 space-y-2">
+                <Label>Описание</Label>
+                <Textarea aria-label="Описание" rows={4} value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} />
+              </div>
+              <div className="lg:col-span-2 flex justify-end gap-2">
+                <Button type="button" variant="outline" onClick={() => void communityQuery.refetch()}>Отмена</Button>
+                <Button type="submit" disabled={updateMutation.isPending}>{updateMutation.isPending ? adminPageText.saving : "Сохранить"}</Button>
+              </div>
+            </form>
           </TabsContent>
 
           <TabsContent value="members" className="mt-4">
-            <div className="rounded-lg border border-border bg-card overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow className="hover:bg-transparent">
-                    <TableHead>Пользователь</TableHead>
-                    <TableHead>Роль</TableHead>
-                    <TableHead>Город</TableHead>
-                    <TableHead>Статус</TableHead>
-                    <TableHead className="text-right">Действия</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {members.map((u, i) => (
-                    <TableRow key={u.id}>
-                      <TableCell>
-                        <Link to={`/users/${u.id}`} className="flex items-center gap-3 hover:text-primary">
-                          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center text-[11px] font-semibold">
-                            {u.name.split(" ").map((s) => s[0]).join("").slice(0, 2)}
-                          </div>
-                          <div>
-                            <p className="text-[13.5px] font-semibold">{u.name}</p>
-                            <p className="text-[11.5px] text-muted-foreground">@{u.handle}</p>
-                          </div>
-                        </Link>
-                      </TableCell>
-                      <TableCell className="text-[13px]">
-                        {i === 0 ? <span className="inline-flex items-center gap-1 text-primary font-semibold"><Crown className="w-3.5 h-3.5" /> Владелец</span> : i === 1 ? "Модератор" : "Участник"}
-                      </TableCell>
-                      <TableCell className="text-[13px]">{u.city}</TableCell>
-                      <TableCell><StatusBadge status={u.status} /></TableCell>
-                      <TableCell className="text-right">
-                        <Button size="sm" variant="outline" className="h-8 gap-1" onClick={() => action(`${u.name} исключён`)}>
-                          <UserMinus className="w-3.5 h-3.5" /> Исключить
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+            <SimpleRows
+              columns={["Пользователь", "Роль", "Город", "Вступил", "Действия"]}
+              rows={membersQuery.data?.items ?? []}
+              loading={membersQuery.isLoading}
+              error={membersQuery.isError}
+              render={(row) => {
+                const user = objectValue(row.user);
+                const role = textValue(row.role);
+                const isLastOwner = role === "owner" && ownersOnPage <= 1;
+                return [
+                  <Link to={`/users/${textValue(row.userId)}`} className="font-semibold hover:text-primary">{textValue(user.displayName)}</Link>,
+                  <select
+                    aria-label={`Роль ${textValue(user.displayName)}`}
+                    value={role}
+                    disabled={isLastOwner}
+                    onChange={(event) => roleMutation.mutate({ memberId: textValue(row.id), role: event.target.value })}
+                    className="h-8 rounded-md border border-input bg-card px-2 text-[13px]"
+                  >
+                    {["owner", "moderator", "member"].map((item) => <option key={item} value={item}>{item}</option>)}
+                  </select>,
+                  valueOrDash(textValue(user.city)),
+                  formatDateTime(textValue(row.joinedAt)),
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 gap-1"
+                    disabled={isLastOwner}
+                    onClick={() => removeMemberMutation.mutate(textValue(row.id))}
+                  >
+                    <UserMinus className="w-3.5 h-3.5" /> Исключить
+                  </Button>,
+                ];
+              }}
+            />
           </TabsContent>
 
-          <TabsContent value="settings" className="mt-4">
-            <div className="rounded-lg border border-border bg-card p-6 space-y-5 max-w-2xl">
-              <div className="space-y-2">
-                <Label>Название</Label>
-                <Input defaultValue={community.name} />
+          <TabsContent value="news" className="mt-4 space-y-4">
+            <form onSubmit={submitNews} className="rounded-lg border border-border bg-card p-4 grid gap-3 md:grid-cols-[1fr_2fr_120px_auto]">
+              <Field label="Заголовок новости" value={newsForm.title} onChange={(value) => setNewsForm({ ...newsForm, title: value })} />
+              <Field label="Текст новости" value={newsForm.blurb} onChange={(value) => setNewsForm({ ...newsForm, blurb: value })} />
+              <Field label="Время" value={newsForm.timeLabel} onChange={(value) => setNewsForm({ ...newsForm, timeLabel: value })} />
+              <div className="flex items-end">
+                <Button type="submit" disabled={createNewsMutation.isPending}>Добавить</Button>
               </div>
-              <div className="space-y-2">
-                <Label>Описание</Label>
-                <Textarea rows={3} defaultValue="Бегаем по утрам, делимся маршрутами и кофе." />
+            </form>
+            <SimpleRows
+              columns={["Заголовок", "Текст", "Время", "Действия"]}
+              rows={newsQuery.data?.items ?? []}
+              loading={newsQuery.isLoading}
+              error={newsQuery.isError}
+              render={(row) => [
+                textValue(row.title),
+                textValue(row.blurb),
+                textValue(row.timeLabel),
+                <div className="flex justify-end gap-2">
+                  <Button size="sm" variant="outline" className="h-8" onClick={() => editNews(row)}>Изменить</Button>
+                  <Button
+                    aria-label={`Удалить новость ${textValue(row.title)}`}
+                    size="sm"
+                    variant="outline"
+                    className="h-8 text-destructive border-destructive/30"
+                    onClick={() => deleteNewsMutation.mutate(textValue(row.id))}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                </div>,
+              ]}
+            />
+          </TabsContent>
+
+          <TabsContent value="media" className="mt-4 space-y-4">
+            <form onSubmit={submitMedia} className="rounded-lg border border-border bg-card p-4 grid gap-3 md:grid-cols-[120px_1fr_160px_auto]">
+              <Field label="Emoji" value={mediaForm.emoji} onChange={(value) => setMediaForm({ ...mediaForm, emoji: value })} />
+              <Field label="Название медиа" value={mediaForm.label} onChange={(value) => setMediaForm({ ...mediaForm, label: value })} />
+              <SelectField label="Тип медиа" value={mediaForm.kind} values={["photo", "video", "doc"]} onChange={(value) => setMediaForm({ ...mediaForm, kind: value })} />
+              <div className="flex items-end">
+                <Button type="submit" disabled={createMediaMutation.isPending}>Добавить</Button>
               </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-[14px] font-semibold flex items-center gap-1.5"><MessageSquare className="w-4 h-4" /> Чат включён</p>
-                  <p className="text-[12px] text-muted-foreground">Участники могут общаться в чате</p>
-                </div>
-                <Switch defaultChecked />
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-[14px] font-semibold">Только по приглашениям</p>
-                  <p className="text-[12px] text-muted-foreground">Закрытое сообщество</p>
-                </div>
-                <Switch defaultChecked={community.status === "closed"} />
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-[14px] font-semibold">Премодерация постов</p>
-                  <p className="text-[12px] text-muted-foreground">Все посты требуют одобрения</p>
-                </div>
-                <Switch />
-              </div>
-              <div className="flex justify-end">
-                <Button onClick={() => action("Настройки сохранены")}>Сохранить</Button>
-              </div>
-            </div>
+            </form>
+            <SimpleRows
+              columns={["Emoji", "Название", "Тип", "Действия"]}
+              rows={mediaQuery.data?.items ?? []}
+              loading={mediaQuery.isLoading}
+              error={mediaQuery.isError}
+              render={(row) => [
+                textValue(row.emoji),
+                textValue(row.label),
+                textValue(row.kind),
+                <div className="flex justify-end gap-2">
+                  <Button size="sm" variant="outline" className="h-8" onClick={() => editMedia(row)}>Изменить</Button>
+                  <Button
+                    aria-label={`Удалить медиа ${textValue(row.label)}`}
+                    size="sm"
+                    variant="outline"
+                    className="h-8 text-destructive border-destructive/30"
+                    onClick={() => deleteMediaMutation.mutate(textValue(row.id))}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                </div>,
+              ]}
+            />
           </TabsContent>
         </Tabs>
       </div>
@@ -266,7 +459,7 @@ const PartnerCommunityDetail = () => {
         name,
         description,
         mood,
-        tags: tags.split(",").map((tag) => tag.trim()).filter(Boolean),
+        tags: splitTags(tags),
       });
       setCommunity(updated);
     } catch (caught) {
@@ -285,13 +478,8 @@ const PartnerCommunityDetail = () => {
     }
   };
 
-  if (isLoading) {
-    return <><AdminTopbar title="Сообщество" subtitle="Загрузка..." /><div className="p-8 text-[13px] text-muted-foreground">Загрузка...</div></>;
-  }
-
-  if (!community) {
-    return <><AdminTopbar title="Сообщество" subtitle="Не найдено" /><div className="p-8 text-[13px] text-muted-foreground">{error ?? "Сообщество не найдено."}</div></>;
-  }
+  if (isLoading) return <PageState text={adminPageText.loading} />;
+  if (!community) return <PageState text={error ?? "Сообщество не найдено."} />;
 
   return (
     <>
@@ -314,21 +502,12 @@ const PartnerCommunityDetail = () => {
           </Button>
         </div>
         <form onSubmit={submit} className="rounded-lg border border-border bg-card p-5 grid gap-4 lg:grid-cols-2">
-          <div className="space-y-2">
-            <Label>Название</Label>
-            <Input value={name} onChange={(event) => setName(event.target.value)} required />
-          </div>
-          <div className="space-y-2">
-            <Label>Настроение</Label>
-            <Input value={mood} onChange={(event) => setMood(event.target.value)} required />
-          </div>
-          <div className="space-y-2 lg:col-span-2">
-            <Label>Теги</Label>
-            <Input value={tags} onChange={(event) => setTags(event.target.value)} />
-          </div>
+          <Field label="Название" value={name} onChange={setName} />
+          <Field label="Настроение" value={mood} onChange={setMood} />
+          <Field label="Теги" value={tags} onChange={setTags} required={false} />
           <div className="space-y-2 lg:col-span-2">
             <Label>Описание</Label>
-            <Textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={4} required />
+            <Textarea aria-label="Описание" value={description} onChange={(event) => setDescription(event.target.value)} rows={4} required />
           </div>
           <div className="lg:col-span-2 flex justify-end">
             <Button type="submit">Сохранить</Button>
@@ -338,3 +517,100 @@ const PartnerCommunityDetail = () => {
     </>
   );
 };
+
+function Field({
+  label,
+  value,
+  onChange,
+  type = "text",
+  required = true,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  type?: string;
+  required?: boolean;
+}) {
+  return (
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      <Input aria-label={label} type={type} value={value} onChange={(event) => onChange(event.target.value)} required={required} />
+    </div>
+  );
+}
+
+function SelectField({ label, value, values, onChange }: { label: string; value: string; values: string[]; onChange: (value: string) => void }) {
+  return (
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      <select aria-label={label} value={value} onChange={(event) => onChange(event.target.value)} className="h-10 rounded-md border border-input bg-card px-3 text-[13px]">
+        {values.map((item) => <option key={item} value={item}>{item}</option>)}
+      </select>
+    </div>
+  );
+}
+
+function SimpleRows({
+  columns,
+  rows,
+  loading,
+  error,
+  render,
+}: {
+  columns: string[];
+  rows: Array<Record<string, unknown>>;
+  loading: boolean;
+  error: boolean;
+  render: (row: Record<string, unknown>) => Array<ReactNode>;
+}) {
+  return (
+    <div className="rounded-lg border border-border bg-card overflow-hidden">
+      <Table>
+        <TableHeader>
+          <TableRow className="hover:bg-transparent">
+            {columns.map((column) => <TableHead key={column}>{column}</TableHead>)}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {loading && <StateRow colSpan={columns.length} text={adminPageText.loading} />}
+          {error && <StateRow colSpan={columns.length} text={adminPageText.error} />}
+          {!loading && !error && rows.length === 0 && <StateRow colSpan={columns.length} text={adminPageText.empty} />}
+          {rows.map((row, index) => (
+            <TableRow key={textValue(row.id) || index}>
+              {render(row).map((cell, cellIndex) => <TableCell key={cellIndex} className="text-[13px]">{cell}</TableCell>)}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
+function StateRow({ colSpan, text }: { colSpan: number; text: string }) {
+  return (
+    <TableRow>
+      <TableCell colSpan={colSpan} className="text-center text-[13px] text-muted-foreground py-8">{text}</TableCell>
+    </TableRow>
+  );
+}
+
+function PageState({ text }: { text: string }) {
+  return (
+    <>
+      <AdminTopbar title="Сообщество" subtitle="" />
+      <div className="p-8 text-[13px] text-muted-foreground">{text}</div>
+    </>
+  );
+}
+
+function objectValue(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+function textValue(value: unknown) {
+  return typeof value === "string" ? value : "";
+}
+
+function splitTags(value: string) {
+  return value.split(",").map((tag) => tag.trim()).filter(Boolean);
+}
