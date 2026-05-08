@@ -12,8 +12,10 @@ import {
   generateAiDrafts,
   listRouteTemplates,
 } from "../evening/api";
+import { getAdminCityTimezone } from "../evening/cities";
 import { AiBriefForm } from "../evening/components/AiBriefForm";
 import { AiDraftList } from "../evening/components/AiDraftList";
+import { CitySelect } from "../evening/components/CitySelect";
 import type { AdminEveningRouteTemplateDto, AiBriefInput, AiDraftDto } from "../evening/types";
 import { StatusBadge } from "../components/StatusBadge";
 import { AdminTopbar } from "../components/Topbar";
@@ -56,7 +58,7 @@ export const AdminEveningRoutes = () => {
     try {
       const template = await createRouteTemplate({
         city,
-        timezone: "Europe/Moscow",
+        timezone: getAdminCityTimezone(city),
         area: area || null,
       });
       navigate(`/evening-routes/${template.id}`);
@@ -107,10 +109,7 @@ export const AdminEveningRoutes = () => {
       <div className="space-y-5 p-5 lg:p-8">
         <div className="rounded-lg border border-border bg-card p-4">
           <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
-            <label className="space-y-1 text-[12px] font-medium text-muted-foreground">
-              <span>Город</span>
-              <Input value={city} onChange={(event) => setCity(event.target.value)} />
-            </label>
+            <CitySelect label="Город маршрута" value={city} onChange={setCity} required />
             <label className="space-y-1 text-[12px] font-medium text-muted-foreground">
               <span>Район</span>
               <Input value={area} onChange={(event) => setArea(event.target.value)} />

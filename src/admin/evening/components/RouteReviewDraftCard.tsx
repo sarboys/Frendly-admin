@@ -9,25 +9,22 @@ import type { RouteReviewDraftDto } from "../routeReviewTypes";
 type Props = {
   draft: RouteReviewDraftDto;
   isBusy: boolean;
-  onApprove: (draft: RouteReviewDraftDto, note: string) => void;
+  onAccept: (draft: RouteReviewDraftDto, note: string) => void;
   onReject: (draft: RouteReviewDraftDto, note: string) => void;
-  onConvert: (draft: RouteReviewDraftDto) => void;
-  onPublish: (draft: RouteReviewDraftDto) => void;
+  onRegenerate: (draft: RouteReviewDraftDto) => void;
 };
 
 export const RouteReviewDraftCard = ({
   draft,
   isBusy,
-  onApprove,
+  onAccept,
   onReject,
-  onConvert,
-  onPublish,
+  onRegenerate,
 }: Props) => {
   const [note, setNote] = useState(draft.reviewNote ?? "");
-  const canApprove = draft.status === "needs_review" && draft.validationStatus !== "invalid";
-  const canReject = draft.status === "needs_review" || draft.status === "approved";
-  const canConvert = draft.status === "approved";
-  const canPublish = draft.status === "converted";
+  const canAccept = draft.status === "needs_review" && draft.validationStatus !== "invalid";
+  const canReject = draft.status === "needs_review";
+  const canRegenerate = draft.status === "needs_review";
 
   return (
     <article className="rounded-lg border border-border bg-card">
@@ -79,41 +76,28 @@ export const RouteReviewDraftCard = ({
             <Button
               type="button"
               size="sm"
-              disabled={!canApprove || isBusy}
-              onClick={() => onApprove(draft, note)}
+              disabled={!canAccept || isBusy}
+              onClick={() => onAccept(draft, note)}
             >
-              Approve
+              Принять
             </Button>
             <Button
               type="button"
               size="sm"
               variant="destructive"
               disabled={!canReject || isBusy}
-              onClick={() => {
-                if (window.confirm("Reject this generated route draft?")) {
-                  onReject(draft, note);
-                }
-              }}
+              onClick={() => onReject(draft, note)}
             >
-              Reject
+              Отклонить
             </Button>
             <Button
               type="button"
               size="sm"
               variant="outline"
-              disabled={!canConvert || isBusy}
-              onClick={() => onConvert(draft)}
+              disabled={!canRegenerate || isBusy}
+              onClick={() => onRegenerate(draft)}
             >
-              Convert
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={!canPublish || isBusy}
-              onClick={() => onPublish(draft)}
-            >
-              Publish
+              Перегенерировать
             </Button>
           </div>
         </div>

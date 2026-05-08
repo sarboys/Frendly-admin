@@ -2,7 +2,9 @@ import { FormEvent, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { getAdminCityTimezone } from "../cities";
 import type { PartnerDto, VenueInput } from "../types";
+import { CitySelect } from "./CitySelect";
 
 type VenueFormProps = {
   partners: PartnerDto[];
@@ -94,9 +96,15 @@ export const VenueForm = ({ partners, onSubmit, error, isSaving }: VenueFormProp
             ))}
           </select>
         </Field>
-        <Field label="Город">
-          <Input value={city} onChange={(event) => setCity(event.target.value)} required />
-        </Field>
+        <CitySelect
+          label="Город"
+          value={city}
+          onChange={(value) => {
+            setCity(value);
+            setTimezone(getAdminCityTimezone(value));
+          }}
+          required
+        />
         <Field label="Таймзона">
           <Input value={timezone} onChange={(event) => setTimezone(event.target.value)} required />
         </Field>

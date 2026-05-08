@@ -1,9 +1,11 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { getAdminCityTimezone } from "../cities";
 import type { AiBriefInput } from "../types";
+import { CitySelect } from "./CitySelect";
 
 type AiBriefFormProps = {
   defaultCity: string;
@@ -33,12 +35,20 @@ export const AiBriefForm = ({
   const [partnerGoal, setPartnerGoal] = useState("");
   const [tone, setTone] = useState("спокойный");
 
+  useEffect(() => {
+    setCity(defaultCity);
+  }, [defaultCity]);
+
+  useEffect(() => {
+    setArea(defaultArea);
+  }, [defaultArea]);
+
   const submit = (event: FormEvent) => {
     event.preventDefault();
     onSubmit({
       titleIdea,
       city,
-      timezone: "Europe/Moscow",
+      timezone: getAdminCityTimezone(city),
       area: area || null,
       audience,
       format,
@@ -68,9 +78,7 @@ export const AiBriefForm = ({
         <Field label="Идея названия">
           <Input value={titleIdea} onChange={(event) => setTitleIdea(event.target.value)} required />
         </Field>
-        <Field label="Город">
-          <Input value={city} onChange={(event) => setCity(event.target.value)} required />
-        </Field>
+        <CitySelect label="Город" value={city} onChange={setCity} required />
       </div>
       <div className="grid gap-3 md:grid-cols-4">
         <Field label="Район">

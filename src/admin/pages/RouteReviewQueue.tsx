@@ -16,7 +16,7 @@ import {
   rejectRouteReviewDraft,
 } from "../evening/routeReviewApi";
 import { RouteReviewDraftCard } from "../evening/components/RouteReviewDraftCard";
-import { RouteReviewFilters } from "../evening/components/RouteReviewFilters";
+import { CitySelect } from "../evening/components/CitySelect";
 import type {
   RouteReviewContentItemDto,
   RouteReviewDraftDto,
@@ -40,8 +40,6 @@ export const RouteReviewQueue = () => {
   const [sources, setSources] = useState<RouteReviewSourceDto[]>([]);
   const [selectedContentItem, setSelectedContentItem] = useState<RouteReviewContentItemDto | null>(null);
   const [city, setCity] = useState("Москва");
-  const [status, setStatus] = useState("needs_review");
-  const [source, setSource] = useState("");
   const [tab, setTab] = useState<RouteReviewTab>("Маршруты");
   const [contentKind, setContentKind] = useState("");
   const [priceMode, setPriceMode] = useState("");
@@ -50,11 +48,9 @@ export const RouteReviewQueue = () => {
   const [hasCoords, setHasCoords] = useState("");
   const [contentDateFrom, setContentDateFrom] = useState("");
   const [contentDateTo, setContentDateTo] = useState("");
-  const [importCity, setImportCity] = useState("Москва");
   const [from, setFrom] = useState(() => new Date().toISOString().slice(0, 10));
   const [to, setTo] = useState(() => new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10));
   const [selectedSources, setSelectedSources] = useState<string[]>(DEFAULT_SOURCES);
-  const [generationCity, setGenerationCity] = useState("Москва");
   const [generationMood, setGenerationMood] = useState("calm");
   const [generationBudget, setGenerationBudget] = useState("low");
   const [generationMaxDrafts, setGenerationMaxDrafts] = useState(2);
@@ -75,11 +71,10 @@ export const RouteReviewQueue = () => {
     setError(null);
     try {
       const [draftResponse, runResponse, itemResponse, generationResponse, sourceResponse] = await Promise.all([
-        listRouteReviewDrafts({ city, status, source, limit: 50 }),
+        listRouteReviewDrafts({ city, status: "needs_review", limit: 50 }),
         listRouteReviewImportRuns({ city, limit: 20 }),
         listRouteReviewContentItems({
           city,
-          source,
           contentKind,
           priceMode,
           publicStatus,
@@ -125,7 +120,7 @@ export const RouteReviewQueue = () => {
 
   useEffect(() => {
     void load();
-  }, []);
+  }, [city]);
 
   const runDraftAction = async (
     draft: RouteReviewDraftDto,
@@ -148,7 +143,7 @@ export const RouteReviewQueue = () => {
     setError(null);
     try {
       await createRouteReviewImportRun({
-        city: importCity,
+        city,
         sources: selectedSources,
         from,
         to,
@@ -166,7 +161,7 @@ export const RouteReviewQueue = () => {
     setError(null);
     try {
       await createRouteReviewGenerationRun({
-        city: generationCity,
+        city,
         mood: generationMood,
         budget: generationBudget,
         maxDrafts: generationMaxDrafts,
@@ -179,6 +174,25 @@ export const RouteReviewQueue = () => {
     }
   };
 
+  const acceptDraft = async (draft: RouteReviewDraftDto, note: string) => {
+    await runDraftAction(draft, async () => {
+      await approveRouteReviewDraft(draft.id, { reviewNote: note });
+      await convertRouteReviewDraft(draft.id);
+      await publishRouteReviewDraft(draft.id);
+    });
+  };
+
+  const regenerateDraft = async (draft: RouteReviewDraftDto) => {
+    await runDraftAction(draft, () =>
+      createRouteReviewGenerationRun({
+        city: draft.city,
+        mood: draft.mood,
+        budget: draft.budget,
+        maxDrafts: 1,
+      }),
+    );
+  };
+
   return (
     <>
       <AdminTopbar
@@ -186,15 +200,6 @@ export const RouteReviewQueue = () => {
         subtitle="Generated drafts проходят ручной approve, reject, convert и publish"
       />
       <div className="space-y-5 p-5 lg:p-8">
-        <RouteReviewFilters
-          city={city}
-          status={status}
-          source={source}
-          onCityChange={setCity}
-          onStatusChange={setStatus}
-          onSourceChange={setSource}
-          onRefresh={() => void load()}
-        />
         <div className="flex flex-wrap gap-2">
           {TABS.map((item) => (
             <Button
@@ -249,10 +254,7 @@ export const RouteReviewQueue = () => {
 
         <div className={`${tab === "Импорты" ? "" : "hidden "}rounded-lg border border-border bg-card p-4`}>
           <div className="grid gap-3 lg:grid-cols-[160px_160px_160px_minmax(0,1fr)_auto]">
-            <label className="space-y-1 text-[12px] font-medium text-muted-foreground">
-              <span>Город</span>
-              <Input value={importCity} onChange={(event) => setImportCity(event.target.value)} />
-            </label>
+            <CitySelect label="Город импорта" value={city} onChange={setCity} />
             <label className="space-y-1 text-[12px] font-medium text-muted-foreground">
               <span>С</span>
               <Input type="date" value={from} onChange={(event) => setFrom(event.target.value)} />
@@ -297,10 +299,7 @@ export const RouteReviewQueue = () => {
 
         <div className={`${tab === "Маршруты" ? "" : "hidden "}rounded-lg border border-border bg-card p-4`}>
           <div className="grid gap-3 lg:grid-cols-[160px_140px_140px_120px_auto]">
-            <label className="space-y-1 text-[12px] font-medium text-muted-foreground">
-              <span>Город</span>
-              <Input value={generationCity} onChange={(event) => setGenerationCity(event.target.value)} />
-            </label>
+            <CitySelect label="Город генерации" value={city} onChange={setCity} />
             <label className="space-y-1 text-[12px] font-medium text-muted-foreground">
               <span>Mood</span>
               <select
@@ -365,14 +364,11 @@ export const RouteReviewQueue = () => {
                 key={draft.id}
                 draft={draft}
                 isBusy={busyDraftId === draft.id}
-                onApprove={(item, note) =>
-                  void runDraftAction(item, () => approveRouteReviewDraft(item.id, { reviewNote: note }))
-                }
+                onAccept={(item, note) => void acceptDraft(item, note)}
                 onReject={(item, note) =>
                   void runDraftAction(item, () => rejectRouteReviewDraft(item.id, { reviewNote: note }))
                 }
-                onConvert={(item) => void runDraftAction(item, () => convertRouteReviewDraft(item.id))}
-                onPublish={(item) => void runDraftAction(item, () => publishRouteReviewDraft(item.id))}
+                onRegenerate={(item) => void regenerateDraft(item)}
               />
             ))
           )}

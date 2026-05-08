@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type { PartnerInput } from "../types";
+import { CitySelect } from "./CitySelect";
 
 type PartnerFormProps = {
   onSubmit: (input: PartnerInput) => Promise<void>;
@@ -41,9 +42,7 @@ export const PartnerForm = ({ onSubmit, error, isSaving }: PartnerFormProps) => 
         <Field label="Название">
           <Input value={name} onChange={(event) => setName(event.target.value)} required />
         </Field>
-        <Field label="Город">
-          <Input value={city} onChange={(event) => setCity(event.target.value)} required />
-        </Field>
+        <CitySelect label="Город" value={city} onChange={setCity} required />
         <Field label="Статус">
           <select
             className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"

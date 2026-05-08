@@ -1,7 +1,14 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { RouteReviewQueue } from "./RouteReviewQueue";
+import {
+  approveRouteReviewDraft,
+  convertRouteReviewDraft,
+  createRouteReviewGenerationRun,
+  publishRouteReviewDraft,
+  rejectRouteReviewDraft,
+} from "../evening/routeReviewApi";
 
 vi.mock("../evening/routeReviewApi", () => ({
   listRouteReviewDrafts: vi.fn().mockResolvedValue({
@@ -161,7 +168,7 @@ describe("RouteReviewQueue", () => {
     vi.clearAllMocks();
   });
 
-  it("renders a draft with review actions", async () => {
+  it("renders the route draft workflow without route filters", async () => {
     render(
       <MemoryRouter>
         <RouteReviewQueue />
@@ -170,14 +177,60 @@ describe("RouteReviewQueue", () => {
 
     expect(await screen.findByText("Тихий центр")).toBeInTheDocument();
     expect(screen.getByText(/Кофейня/)).toBeInTheDocument();
+    expect(screen.queryByLabelText("Статус")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Источник")).not.toBeInTheDocument();
+
+    const citySelect = screen.getByLabelText("Город генерации");
+    expect(within(citySelect).getByRole("option", { name: "Воронеж" })).toBeInTheDocument();
+    expect(within(citySelect).getByRole("option", { name: "Пермь" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Generate drafts" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Approve" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Reject" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Принять" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Отклонить" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Перегенерировать" })).toBeEnabled();
 
     fireEvent.click(screen.getByRole("button", { name: "Контент" }));
     expect(screen.getByText("Экскурсия по Москве")).toBeInTheDocument();
     fireEvent.click(screen.getByText("Экскурсия по Москве"));
     expect(screen.getByText("Route planner")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Hide" })).toBeEnabled();
+  });
+
+  it("accepts a generated draft by approving, converting and publishing it in one click", async () => {
+    render(
+      <MemoryRouter>
+        <RouteReviewQueue />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "Принять" }));
+
+    await waitFor(() => {
+      expect(approveRouteReviewDraft).toHaveBeenCalledWith("draft-1", { reviewNote: "" });
+      expect(convertRouteReviewDraft).toHaveBeenCalledWith("draft-1");
+      expect(publishRouteReviewDraft).toHaveBeenCalledWith("draft-1");
+    });
+  });
+
+  it("rejects and regenerates drafts from the same route card", async () => {
+    render(
+      <MemoryRouter>
+        <RouteReviewQueue />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "Отклонить" }));
+    await waitFor(() => {
+      expect(rejectRouteReviewDraft).toHaveBeenCalledWith("draft-1", { reviewNote: "" });
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Перегенерировать" }));
+    await waitFor(() => {
+      expect(createRouteReviewGenerationRun).toHaveBeenCalledWith({
+        city: "Москва",
+        mood: "calm",
+        budget: "low",
+        maxDrafts: 1,
+      });
+    });
   });
 });
