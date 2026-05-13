@@ -7,6 +7,7 @@ import {
   convertRouteReviewDraft,
   createRouteReviewImportRun,
   createRouteReviewGenerationRun,
+  listRouteReviewSources,
   publishRouteReviewDraft,
   rejectRouteReviewDraft,
 } from "../evening/routeReviewApi";
@@ -216,6 +217,49 @@ describe("RouteReviewQueue", () => {
         }),
       );
     });
+  });
+
+  it("keeps tomesto in import sources when the API source list is missing it", async () => {
+    vi.mocked(listRouteReviewSources).mockResolvedValueOnce({
+      items: [
+        {
+          id: "source-advcake",
+          code: "advcake_ticketland",
+          name: "AdvCake Ticketland",
+          kind: "tickets",
+          status: "active",
+          lastImportedAt: null,
+          baseUrl: null,
+          lastError: null,
+          lastFetchedCount: 0,
+          lastPublishedCount: 0,
+        },
+        {
+          id: "source-kudago",
+          code: "kudago",
+          name: "KudaGo",
+          kind: "events",
+          status: "active",
+          lastImportedAt: null,
+          baseUrl: null,
+          lastError: null,
+          lastFetchedCount: 0,
+          lastPublishedCount: 0,
+        },
+      ],
+    });
+
+    render(
+      <MemoryRouter>
+        <RouteReviewQueue />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "Импорты" }));
+
+    expect(screen.getByLabelText("advcake_ticketland")).toBeChecked();
+    expect(screen.getByLabelText("kudago")).toBeChecked();
+    expect(screen.getByLabelText("tomesto")).toBeChecked();
   });
 
   it("accepts a generated draft by approving, converting and publishing it in one click", async () => {

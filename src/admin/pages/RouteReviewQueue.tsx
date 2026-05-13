@@ -63,7 +63,8 @@ export const RouteReviewQueue = () => {
 
   const availableSources = useMemo(() => {
     const fromApi = sources.map((item) => item.code);
-    return fromApi.length > 0 ? fromApi : DEFAULT_SOURCES;
+    const sourceCodes = fromApi.length > 0 ? fromApi : DEFAULT_SOURCES;
+    return Array.from(new Set([...sourceCodes, ...DEFAULT_SOURCES]));
   }, [sources]);
 
   const load = async () => {
