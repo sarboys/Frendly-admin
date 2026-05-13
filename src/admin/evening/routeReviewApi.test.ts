@@ -57,7 +57,7 @@ describe("route review admin api", () => {
 
     await createRouteReviewImportRun({
       city: "Москва",
-      sources: ["kudago", "timepad", "advcake_ticketland"],
+      sources: ["kudago", "timepad", "advcake_ticketland", "tomesto"],
       from: "2026-05-04",
       to: "2026-05-11",
     });
@@ -68,7 +68,7 @@ describe("route review admin api", () => {
         method: "POST",
         body: JSON.stringify({
           city: "Москва",
-          sources: ["kudago", "timepad", "advcake_ticketland"],
+          sources: ["kudago", "timepad", "advcake_ticketland", "tomesto"],
           from: "2026-05-04",
           to: "2026-05-11",
         }),

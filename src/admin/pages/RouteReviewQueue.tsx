@@ -28,7 +28,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
-const DEFAULT_SOURCES = ["kudago", "timepad", "advcake_ticketland"];
+const DEFAULT_SOURCES = ["kudago", "timepad", "advcake_ticketland", "tomesto"];
 const TABS = ["Источники", "Импорты", "Контент", "Маршруты"] as const;
 type RouteReviewTab = (typeof TABS)[number];
 

@@ -5,6 +5,7 @@ import { RouteReviewQueue } from "./RouteReviewQueue";
 import {
   approveRouteReviewDraft,
   convertRouteReviewDraft,
+  createRouteReviewImportRun,
   createRouteReviewGenerationRun,
   publishRouteReviewDraft,
   rejectRouteReviewDraft,
@@ -193,6 +194,28 @@ describe("RouteReviewQueue", () => {
     fireEvent.click(screen.getByText("Экскурсия по Москве"));
     expect(screen.getByText("Route planner")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Hide" })).toBeEnabled();
+  });
+
+  it("shows tomesto in fallback import sources and sends it to manual import", async () => {
+    render(
+      <MemoryRouter>
+        <RouteReviewQueue />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "Импорты" }));
+    expect(screen.getByLabelText("tomesto")).toBeChecked();
+
+    fireEvent.click(screen.getByRole("button", { name: "Import" }));
+
+    await waitFor(() => {
+      expect(createRouteReviewImportRun).toHaveBeenCalledWith(
+        expect.objectContaining({
+          city: "Москва",
+          sources: ["kudago", "timepad", "advcake_ticketland", "tomesto"],
+        }),
+      );
+    });
   });
 
   it("accepts a generated draft by approving, converting and publishing it in one click", async () => {
