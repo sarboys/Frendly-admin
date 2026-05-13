@@ -34,7 +34,7 @@ jobs:
             set -eu
             export APP_DIR="/opt/frendly"
             export REPO_URL="https://github.com/sarboys/Frendly.git"
-            export BRANCH="${{ vars.FRENDLY_BACKEND_BRANCH || 'frendly-evening-db-foundation' }}"
+            export BRANCH="${{ vars.FRENDLY_BACKEND_BRANCH || 'main' }}"
             export ADMIN_REPO_URL="https://github.com/sarboys/Frendly-admin.git"
             export ADMIN_BRANCH="main"
             export ADMIN_TARGET_SHA="${{ github.event_name == 'workflow_dispatch' && github.sha || github.event.workflow_run.head_sha }}"
