@@ -219,6 +219,27 @@ describe("RouteReviewQueue", () => {
     });
   });
 
+  it("starts Tomesto catalog import separately", async () => {
+    render(
+      <MemoryRouter>
+        <RouteReviewQueue />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "Импорты" }));
+    fireEvent.click(screen.getByRole("button", { name: "Импорт каталога ТоМесто" }));
+
+    await waitFor(() => {
+      expect(createRouteReviewImportRun).toHaveBeenCalledWith(
+        expect.objectContaining({
+          city: "Москва",
+          sources: ["tomesto"],
+          importMode: "tomesto_places_catalog",
+        }),
+      );
+    });
+  });
+
   it("keeps tomesto in import sources when the API source list is missing it", async () => {
     vi.mocked(listRouteReviewSources).mockResolvedValueOnce({
       items: [

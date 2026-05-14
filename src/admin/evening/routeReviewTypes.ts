@@ -120,6 +120,7 @@ export type RouteReviewImportRunInput = {
   sources: string[];
   from: string;
   to: string;
+  importMode?: string;
 };
 
 export type RouteReviewContentItemDto = {

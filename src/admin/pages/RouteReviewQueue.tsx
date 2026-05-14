@@ -29,6 +29,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 const DEFAULT_SOURCES = ["kudago", "timepad", "advcake_ticketland", "tomesto"];
+const TOMESTO_PLACES_CATALOG_MODE = "tomesto_places_catalog";
 const TABS = ["Источники", "Импорты", "Контент", "Маршруты"] as const;
 type RouteReviewTab = (typeof TABS)[number];
 
@@ -148,6 +149,25 @@ export const RouteReviewQueue = () => {
         sources: selectedSources,
         from,
         to,
+      });
+      await load();
+    } catch (caught) {
+      setError(errorMessage(caught));
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  const submitTomestoCatalogImport = async () => {
+    setIsImporting(true);
+    setError(null);
+    try {
+      await createRouteReviewImportRun({
+        city,
+        sources: ["tomesto"],
+        from,
+        to,
+        importMode: TOMESTO_PLACES_CATALOG_MODE,
       });
       await load();
     } catch (caught) {
@@ -294,6 +314,16 @@ export const RouteReviewQueue = () => {
                 Import
               </Button>
             </div>
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-border pt-3">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isImporting || city !== "Москва"}
+              onClick={() => void submitTomestoCatalogImport()}
+            >
+              Импорт каталога ТоМесто
+            </Button>
           </div>
           {error ? <p className="mt-3 text-[12px] text-destructive">{error}</p> : null}
         </div>
